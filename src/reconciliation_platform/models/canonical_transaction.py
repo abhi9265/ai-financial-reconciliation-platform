@@ -113,7 +113,7 @@ def compute_record_hash(transaction: "CanonicalTransaction") -> str:
 class CanonicalTransaction(BaseModel):
     """Normalized financial transaction consumed by downstream reconciliation."""
 
-    model_config = ConfigDict(extra="forbid", use_enum_values=True)
+    model_config = ConfigDict(extra="forbid")
 
     transaction_id: str = Field(min_length=1)
     source_system: SourceSystem
@@ -168,10 +168,10 @@ class CanonicalTransaction(BaseModel):
                 raise ValueError("debit/credit must be null when amount_direction is null")
             return self
 
-        if self.amount_direction is AmountDirection.DEBIT:
+        if self.amount_direction == AmountDirection.DEBIT:
             if self.debit != self.amount or self.credit is not None:
                 raise ValueError("DEBIT requires debit=amount and credit=null")
-        elif self.amount_direction is AmountDirection.CREDIT:
+        elif self.amount_direction == AmountDirection.CREDIT:
             if self.credit != self.amount or self.debit is not None:
                 raise ValueError("CREDIT requires credit=amount and debit=null")
         return self
