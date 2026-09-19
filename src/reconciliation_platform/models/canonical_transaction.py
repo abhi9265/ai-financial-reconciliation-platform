@@ -13,7 +13,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 
 class SourceSystem(str, Enum):
@@ -83,7 +83,6 @@ HASH_FIELDS = (
 def _hash_value(value: Any) -> Any:
     """Convert supported values into deterministic JSON-safe primitives."""
     if isinstance(value, Decimal):
-        # Normalize trailing zeroes so Decimal("100.00") and Decimal("100") hash alike.
         return format(value.normalize(), "f")
     if isinstance(value, (datetime, date)):
         return value.isoformat()
@@ -186,17 +185,17 @@ class CanonicalTransaction(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_record_hash(self) -> "CanonicalTransaction":
-        expected = compute_record_hash(self)
-        if self.record_hash != expected:
-            raise ValueError("record_hash does not match the canonical business payload")
+    def validate_record_hash(self, info: ValidationInfo) -> "CanonicalTransaction":
+        if not (info.context or {}).get("skip_record_hash"):
+            expected = compute_record_hash(self)
+            if self.record_hash != expected:
+                raise ValueError("record_hash does not match the canonical business payload")
         return self
 
     @classmethod
     def from_business_fields(cls, **data: Any) -> "CanonicalTransaction":
         """Build a transaction while computing its deterministic record hash."""
         data = dict(data)
-        data.pop("record_hash", None)
-        provisional = cls.model_construct(record_hash="0" * 64, **data)
-        data["record_hash"] = compute_record_hash(provisional)
-        return cls.model_validate(data)
+        data["record_hash"] = "0" * 64
+        validated = cls.model_validate(data, context={"skip_record_hash": True})
+        return validated.model_copy(update={"record_hash": compute_record_hash(validated)})
