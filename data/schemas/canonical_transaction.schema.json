@@ -4,35 +4,232 @@
   "description": "Canonical contract for normalized financial records entering reconciliation.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["transaction_id","source_system","source_record_id","transaction_date","amount","currency","transaction_type","ingestion_batch_id","record_hash","ingested_at"],
+  "required": [
+    "transaction_id",
+    "source_system",
+    "source_record_id",
+    "transaction_date",
+    "transaction_type",
+    "amount",
+    "currency",
+    "ingestion_batch_id",
+    "record_hash",
+    "ingested_at"
+  ],
   "properties": {
-    "transaction_id":{"type":"string"},
-    "source_system":{"type":"string","enum":["bank","purchase_register","sales_register","tally","invoice","gst"]},
-    "source_record_id":{"type":"string"},
-    "transaction_date":{"type":"string","format":"date"},
-    "value_date":{"type":["string","null"],"format":"date"},
-    "transaction_type":{"type":"string","enum":["DEBIT","CREDIT","PURCHASE","SALE","RECEIPT","PAYMENT","OTHER"]},
-    "amount":{"type":"number","exclusiveMinimum":0},
-    "debit":{"type":["number","null"],"minimum":0},
-    "credit":{"type":["number","null"],"minimum":0},
-    "currency":{"type":"string","pattern":"^[A-Z]{3}$"},
-    "description":{"type":["string","null"]},
-    "reference_number":{"type":["string","null"]},
-    "vendor_name":{"type":["string","null"]},
-    "vendor_gstin":{"type":["string","null"],"pattern":"^[0-9A-Z]{15}$"},
-    "invoice_number":{"type":["string","null"]},
-    "invoice_date":{"type":["string","null"],"format":"date"},
-    "taxable_amount":{"type":["number","null"],"minimum":0},
-    "cgst":{"type":["number","null"],"minimum":0},
-    "sgst":{"type":["number","null"],"minimum":0},
-    "igst":{"type":["number","null"],"minimum":0},
-    "total_tax":{"type":["number","null"],"minimum":0},
-    "account_name":{"type":["string","null"]},
-    "bank_account":{"type":["string","null"]},
-    "source_file":{"type":["string","null"]},
-    "source_row_number":{"type":["integer","null"],"minimum":1},
-    "record_hash":{"type":"string","minLength":16},
-    "ingestion_batch_id":{"type":"string","minLength":1},
-    "ingested_at":{"type":"string","format":"date-time"}
+    "transaction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_system": {
+      "type": "string",
+      "enum": [
+        "bank",
+        "purchase_register",
+        "sales_register",
+        "tally",
+        "invoice",
+        "gst"
+      ]
+    },
+    "source_record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transaction_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "value_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "invoice_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "transaction_type": {
+      "type": "string",
+      "enum": [
+        "PURCHASE",
+        "SALE",
+        "PAYMENT",
+        "RECEIPT",
+        "REFUND",
+        "FEE",
+        "TAX",
+        "JOURNAL",
+        "OTHER"
+      ]
+    },
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "amount_direction": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "DEBIT",
+        "CREDIT",
+        null
+      ]
+    },
+    "debit": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "credit": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reference_number": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "invoice_number": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "counterparty_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "counterparty_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "VENDOR",
+        "CUSTOMER",
+        "BANK",
+        "TAX_AUTHORITY",
+        "EMPLOYEE",
+        "OTHER",
+        null
+      ]
+    },
+    "counterparty_gstin": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9A-Z]{15}$"
+    },
+    "taxable_amount": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cgst": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sgst": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "igst": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "total_tax": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "account_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bank_account": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_file_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_file_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_row_number": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "source_schema_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ingestion_batch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ingested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "record_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
   }
 }

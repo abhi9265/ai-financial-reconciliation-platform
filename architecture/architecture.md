@@ -6,8 +6,6 @@ Build a reliable financial reconciliation platform that converts heterogeneous a
 
 ## 2. Source systems
 
-Initial source types:
-
 | Source | Example format | Initial role |
 | --- | --- | --- |
 | Bank statement | CSV / Excel | transaction feed |
@@ -30,6 +28,7 @@ Ingestion
     ├── source validation
     ├── file metadata
     ├── batch identity
+    ├── file fingerprint
     └── idempotency
     │
     ▼
@@ -70,21 +69,51 @@ Feedback / Evaluation
 
 ## 4. Canonical transaction model
 
-The canonical model is intended to isolate downstream logic from source-specific schemas.
+The canonical model intentionally separates seven concerns:
 
-Core fields:
+### Business meaning
+- `transaction_type` describes PURCHASE, SALE, PAYMENT, RECEIPT, REFUND, FEE, TAX, JOURNAL, or OTHER.
+- `amount` is always a positive absolute amount.
+- `amount_direction` represents DEBIT/CREDIT only where source accounting direction exists.
 
-- transaction identity: `transaction_id`, `source_system`, `source_record_id`
-- dates: `transaction_date`, `value_date`
-- amount: `debit`, `credit`, `amount`, `currency`
-- description: `description`, `reference_number`
-- counterparty: `vendor_name`, `vendor_gstin`
-- invoice context: `invoice_number`, `invoice_date`
-- tax context: `taxable_amount`, `cgst`, `sgst`, `igst`, `total_tax`
-- accounting context: `account_name`, `bank_account`
-- ingestion/audit metadata: `ingestion_batch_id`, `source_file`, `source_row_number`, `record_hash`, `ingested_at`
+### Dates
+- `transaction_date` represents the date of the financial/business event.
+- `invoice_date` preserves the invoice document date.
+- `value_date` preserves bank settlement/value date.
 
-The exact schema contract will be versioned in `data/schemas/`.
+These dates must not be silently collapsed into one field.
+
+### Counterparty
+- `counterparty_name`
+- `counterparty_type`
+- `counterparty_gstin`
+
+This supports both vendor and customer records without maintaining two competing field sets.
+
+### Tax
+- taxable amount
+- CGST
+- SGST
+- IGST
+- total tax
+- counterparty GSTIN
+
+Tax fields are optional because not every source contains tax information.
+
+### Lineage
+- source system
+- source record ID
+- source file name/hash
+- source row number
+- source schema version
+
+### Idempotency
+A deterministic SHA-256 `record_hash` is derived from stable canonical business fields. Volatile ingestion metadata is excluded.
+
+### Batch metadata
+`ingestion_batch_id` identifies the processing run. Batch-level operational statistics will be stored separately from transaction-level records.
+
+The exact schema contract is versioned in `data/schemas/`.
 
 ## 5. Matching strategy
 
@@ -101,7 +130,7 @@ Prefer strong exact evidence such as:
 ### Tier 2 — Fuzzy / statistical
 
 Use multiple signals when exact matching is insufficient:
-- vendor similarity
+- counterparty similarity
 - amount difference
 - date difference
 - invoice/reference similarity
