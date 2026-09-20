@@ -74,8 +74,8 @@ def _validate_upload(upload: UploadFile) -> None:
 
 @app.post("/v1/reconcile")
 async def reconcile_uploaded_files(
-    bank_file: UploadFile = File(...),
-    purchase_file: UploadFile = File(...),
+    bank_file: UploadFile = File(...),  # noqa: B008
+    purchase_file: UploadFile = File(...),  # noqa: B008
     _: None = Depends(require_api_key),
     tenant_id: str = Depends(require_tenant_id),
 ) -> dict:
