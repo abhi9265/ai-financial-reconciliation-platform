@@ -2,20 +2,20 @@
 
 ## 1. Objective
 
-Build a reliable financial reconciliation platform that converts heterogeneous accounting and financial records into a common transaction model, reconciles records using an ordered matching strategy, identifies anomalies, and routes uncertain decisions for human review.
+Build a reliable financial reconciliation platform that converts heterogeneous accounting and financial records into a common transaction model, reconciles records using an ordered evidence-based matching strategy, identifies anomalies, and routes uncertain decisions for human review and optional AI assistance.
 
 ## 2. Source systems
 
-| Source | Example format | Initial role |
+| Source | Example format | Implemented role |
 | --- | --- | --- |
 | Bank statement | CSV / Excel | transaction feed |
 | Purchase register | CSV / Excel | payable-side records |
-| Sales register | CSV / Excel | receivable-side records |
-| Tally export | CSV / Excel | accounting-system records |
-| Invoice | PDF | document-level evidence |
-| GST data | JSON | tax/reference evidence |
+| Sales register | CSV / Excel | planned adapter |
+| Tally export | CSV / Excel | planned adapter |
+| Invoice | PDF | planned adapter |
+| GST data | JSON | planned adapter |
 
-The implementation will use synthetic data only.
+The implementation uses synthetic data only.
 
 ## 3. Logical flow
 
@@ -24,71 +24,65 @@ Source Files
     │
     ▼
 Ingestion
-    │
-    ├── source validation
-    ├── file metadata
-    ├── batch identity
+    ├── source contract validation
     ├── file fingerprint
-    └── idempotency
+    ├── batch identity
+    └── idempotency keys
     │
     ▼
-Bronze
+Bronze Boundary
     │
     ▼
 Validation + Normalization
-    │
     ├── schema checks
     ├── type normalization
     ├── field standardization
     ├── business-rule checks
-    └── quarantine
+    └── lineage
     │
     ▼
 Silver Canonical Transactions
     │
     ▼
 Reconciliation Engine
-    │
     ├── deterministic matching
-    ├── fuzzy/statistical matching
-    └── AI escalation for ambiguity
+    ├── conservative fuzzy matching
+    └── exception routing
     │
     ▼
 Decision + Confidence + Explanation
-    │
     ├── matched
     ├── unmatched
     └── human review
     │
+    ├── optional AI escalation
     ▼
-Anomaly Detection + Reporting
+Anomaly Detection + Evaluation
     │
     ▼
-Feedback / Evaluation
+Reports / operational interfaces
 ```
 
 ## 4. Canonical transaction model
 
-The canonical model intentionally separates seven concerns:
+The canonical model separates:
 
 ### Business meaning
-- `transaction_type` describes PURCHASE, SALE, PAYMENT, RECEIPT, REFUND, FEE, TAX, JOURNAL, or OTHER.
-- `amount` is always a positive absolute amount.
-- `amount_direction` represents DEBIT/CREDIT only where source accounting direction exists.
+- transaction type
+- positive absolute amount
+- debit/credit direction
 
 ### Dates
-- `transaction_date` represents the date of the financial/business event.
-- `invoice_date` preserves the invoice document date.
-- `value_date` preserves bank settlement/value date.
+- transaction date
+- invoice date
+- bank value date
 
-These dates must not be silently collapsed into one field.
+These dates are not silently collapsed.
 
 ### Counterparty
-- `counterparty_name`
-- `counterparty_type`
-- `counterparty_gstin`
-
-This supports both vendor and customer records without maintaining two competing field sets.
+- name
+- type
+- GSTIN
 
 ### Tax
 - taxable amount
@@ -96,9 +90,6 @@ This supports both vendor and customer records without maintaining two competing
 - SGST
 - IGST
 - total tax
-- counterparty GSTIN
-
-Tax fields are optional because not every source contains tax information.
 
 ### Lineage
 - source system
@@ -111,65 +102,62 @@ Tax fields are optional because not every source contains tax information.
 A deterministic SHA-256 `record_hash` is derived from stable canonical business fields. Volatile ingestion metadata is excluded.
 
 ### Batch metadata
-`ingestion_batch_id` identifies the processing run. Batch-level operational statistics will be stored separately from transaction-level records.
-
-The exact schema contract is versioned in `data/schemas/`.
+`ingestion_batch_id` is deterministically derived from source system, file fingerprint, and schema version.
 
 ## 5. Matching strategy
 
-The reconciliation engine will use an ordered escalation model:
-
 ### Tier 1 — Deterministic
 
-Prefer strong exact evidence such as:
+Strong evidence includes:
 - exact invoice/reference identifier
-- exact GSTIN
 - exact amount
-- date within an explicit tolerance
+- date within configured tolerance
+- compatible counterparty
 
-### Tier 2 — Fuzzy / statistical
+A reference match with a material amount mismatch is routed to review instead of being silently accepted.
 
-Use multiple signals when exact matching is insufficient:
+### Tier 2 — Fuzzy/statistical
+
+Multiple signals can be combined:
 - counterparty similarity
 - amount difference
 - date difference
-- invoice/reference similarity
-- transaction type compatibility
+- reference similarity
+- transaction-type compatibility
+
+The current MVP uses standard-library string similarity and a conservative threshold.
 
 ### Tier 3 — AI-assisted review
 
-Use AI only for ambiguous candidate pairs. AI output must be structured, validated, and accompanied by an explicit reason and confidence.
-
-AI recommendations do not bypass validation or human approval for configured high-risk cases.
+AI is optional and sits behind a provider-neutral reviewer interface. The default implementation does not invent decisions. A future provider can inspect only already-validated ambiguous cases and return a structured recommendation, confidence, rationale, and model identifier.
 
 ## 6. Decision contract
 
-Every reconciliation decision should be traceable to:
-- source record(s)
-- candidate record(s)
+Every reconciliation decision contains:
+- source record
+- candidate record, when available
 - matching tier
-- signals used
-- decision
+- signals
+- status
 - confidence
 - explanation
-- timestamp
-- pipeline/batch identifier
 
-## 7. Data-quality and reliability principles
+Review cases receive a stable case ID and can be persisted later.
 
-The foundation will include:
-- immutable/raw ingestion boundaries
-- idempotent batch handling
-- deterministic record hashing
+## 7. Reliability principles
+
+The implementation includes:
+- immutable/raw ingestion boundary
+- deterministic file fingerprinting
+- deterministic batch identity
+- record hashing
 - schema validation
-- quarantine for invalid records
+- quarantine-ready quality issue contracts
 - explicit lineage
 - replayable processing
 - automated tests
-- clear evidence boundaries
+- evidence-first AI boundary
 
-## 8. Implementation boundary
+## 8. Current implementation boundary
 
-Phase 1 intentionally stops before implementing the AI and reconciliation engine. This keeps the foundation independently testable and prevents the project from becoming an LLM-first demo.
-
-Future phases will extend the same contracts rather than replace them.
+The current repository is an executable synthetic-data MVP rather than a production service. Bank and purchase-register adapters are implemented end-to-end. Remaining production work is persistence, API/serving, authentication/authorization, observability, deployment, additional source adapters, and connecting a selected LLM provider behind the existing AI interface.
