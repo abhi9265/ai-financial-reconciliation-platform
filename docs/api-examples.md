@@ -109,3 +109,14 @@ REDIS_URL=redis://redis:6379/0
 ```
 
 Docker Compose starts PostgreSQL, Redis, the API, and a Celery worker.
+
+For retry-safe async submissions, send an `Idempotency-Key` scoped to the tenant. Reusing the same key returns the existing job instead of creating another reconciliation job:
+
+```bash
+curl -X POST http://localhost:8000/v1/reconcile/async \
+  -H "X-API-Key: $API_KEY" \
+  -H "X-Tenant-ID: $TENANT_ID" \
+  -H "Idempotency-Key: month-end-2026-09" \
+  -F "bank_file=@data/synthetic/seed/bank_transactions.csv" \
+  -F "purchase_file=@data/synthetic/seed/purchase_invoices.csv"
+```
