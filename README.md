@@ -211,3 +211,35 @@ For production-style non-blocking processing, use `POST /v1/reconcile/async`. Th
 Poll `GET /v1/reconcile/jobs/{job_id}` with the same tenant credentials. Jobs transition through `queued`, `running`, `succeeded`, or `failed`. Job results and errors are persisted in the configured SQLite/PostgreSQL backend.
 
 This background-task implementation is intentionally lightweight for the portfolio MVP. A distributed queue such as Celery/RQ/SQS + worker deployment is the next scaling step for high-volume workloads.
+
+
+## Production hardening
+
+The production path now supports a distributed worker mode in addition to the lightweight background-task mode.
+
+Set:
+- `JOB_QUEUE=celery`
+- `REDIS_URL=redis://redis:6379/0`
+
+Docker Compose starts PostgreSQL, Redis, the API, and a Celery worker. Celery is configured for late acknowledgements, one-task prefetching, task-start tracking, and bounded task execution time. A worker crash can therefore leave a task eligible for redelivery rather than silently losing it.
+
+### Rate limiting
+
+Tenant-scoped request throttling is enabled for the upload/reconciliation endpoints. Configure `RATE_LIMIT_PER_MINUTE`. The current implementation is an in-process limiter and is appropriate for a single API instance. For horizontally scaled API replicas, rate limiting should be moved to a shared Redis-backed atomic counter before exposing multiple replicas.
+
+### Request tracing and security headers
+
+Every HTTP response receives an `X-Request-ID` (preserving a caller-supplied value when present), plus baseline security headers. Structured request logs include request ID, route, status, and latency.
+
+### Auditability and metrics
+
+- `GET /metrics` exposes application counters.
+- `GET /v1/audit` returns tenant-scoped audit events.
+- Async job completion/failure and status reads are recorded.
+- Reconciliation completion records include the benchmark summary and AI review metadata.
+
+The local JSONL audit file is an MVP durability layer. A cloud deployment should route audit events to durable centralized storage with retention controls.
+
+### Deployment boundary
+
+The repository is production-oriented and containerized, but a truly production deployment still requires environment-specific infrastructure outside GitHub: TLS termination/managed ingress, managed PostgreSQL/Redis, cloud object storage, centralized logs/metrics/traces, secret management, backups, alerting, and identity/access policies. Those external systems cannot be truthfully marked as live-verified from this repository alone.
