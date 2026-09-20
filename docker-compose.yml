@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reconciliation
+      POSTGRES_USER: reconciliation
+      POSTGRES_PASSWORD: reconciliation
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reconciliation -d reconciliation"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      API_KEY_REQUIRED: "true"
+      RECONCILIATION_API_KEY: ${RECONCILIATION_API_KEY:?set RECONCILIATION_API_KEY in your shell or .env}
+      DATABASE_URL: postgresql://reconciliation:reconciliation@postgres:5432/reconciliation
+      AI_PROVIDER: ${AI_PROVIDER:-none}
+      AI_MODEL: ${AI_MODEL:-gpt-5.6-luna}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-20}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
