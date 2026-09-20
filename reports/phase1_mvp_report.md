@@ -1,53 +1,81 @@
 # Phase 1 MVP Engineering Report
 
-## Scope completed
+## Status
 
-The repository now contains an executable synthetic financial reconciliation MVP covering:
+**Implemented:** executable end-to-end synthetic reconciliation MVP.
 
-1. Source ingestion contracts
-2. File fingerprinting and deterministic batch identity
-3. Source-to-canonical normalization
-4. Canonical business validation
-5. Lineage metadata
-6. Deterministic reconciliation with controlled fuzzy fallback
-7. Exception/anomaly classification
-8. Human-review case generation
-9. Automated unit and integration tests
-10. CI configuration
+### Delivered components
 
-## Seed-data result
+| Area | Status |
+|---|---|
+| Canonical transaction contract | Complete |
+| Source ingestion contracts | Complete |
+| File fingerprinting | Complete |
+| Deterministic batch identity | Complete |
+| Source normalization | Complete for bank + purchase register |
+| Data-quality validation | Complete |
+| Record hashing / lineage | Complete |
+| Deterministic reconciliation | Complete |
+| Conservative fuzzy fallback | Complete |
+| Anomaly classification | Complete |
+| Human-review case contract | Complete |
+| AI escalation interface | Complete, provider-neutral |
+| Evaluation metrics | Complete |
+| CLI | Complete |
+| Unit/integration tests | Added |
+| GitHub Actions CI | Configured |
+| Persistent database/object storage | Not implemented |
+| External LLM provider | Not configured |
+| Production API/deployment | Not implemented |
 
-The pipeline is designed to run against `data/synthetic/seed`.
+## Synthetic benchmark
 
-Expected seed characteristics:
+The checked-in seed is intentionally structured as a reconciliation benchmark:
+
 - 100 bank transactions
 - 95 purchase invoices
-- 90 transactions auto-matched
-- 5 transactions routed to review because the referenced invoice amount differs
-- 5 transactions remain unmatched because corresponding purchase records are absent
-- 10 reconciliation anomalies are surfaced from those exceptions
+- 90 expected auto-matches
+- 5 reference-linked amount mismatches routed to review
+- 5 bank records without a corresponding purchase record
+- 10 expected reconciliation exceptions
 
-## Engineering decisions
+The benchmark is a development/evaluation fixture, not a production accuracy claim.
 
-### AI boundary
+## Architecture decisions
 
-No LLM is required for the core path. Deterministic evidence is evaluated first. Ambiguous records are explicitly represented as review cases so an AI layer can be added later without changing the canonical or reconciliation contracts.
+### 1. Evidence before AI
 
-### Idempotency
+The matching engine evaluates deterministic evidence first: reference number, amount, date tolerance, and counterparty similarity. A strong reference with an amount mismatch is not silently auto-matched.
 
-Raw file content is fingerprinted with SHA-256. Batch identity is derived from source system, file fingerprint, and schema version. Record-level idempotency can additionally be derived from source record identity and canonical record hash.
+### 2. AI is an escalation boundary
 
-### Lineage
+The AI module is provider-neutral. A future LLM implementation can implement the reviewer protocol without changing ingestion, canonical schemas, or matching logic. The default reviewer never invents a match.
 
-Every normalized record retains source file name/hash, source row number, schema version, and ingestion batch ID.
+### 3. Idempotency
 
-### Evidence
+File SHA-256 fingerprints and deterministic batch IDs make repeated ingestion of the same source/schema combination identifiable. Record-level idempotency combines source identity with canonical record hash.
 
-The integration test encodes the expected result of the current synthetic seed. This is a reproducible benchmark, not a production performance claim.
+### 4. Lineage
 
-## Known limitations
+Canonical records retain source file name/hash, source row number, schema version, and ingestion batch ID.
 
-- Only bank and purchase-register adapters are implemented in this MVP.
-- Bronze storage is represented by the source boundary; no object-store/database persistence is required yet.
-- Fuzzy matching uses a standard-library string similarity implementation and is intentionally conservative.
-- AI-assisted review, persistent human approval, APIs, observability, and deployment are deferred to the next phase.
+### 5. Human review
+
+Review cases are first-class objects. They can be persisted or exposed through an API later without changing reconciliation decisions.
+
+## How to run
+
+```bash
+python -m pip install -e ".[dev]"
+reconcile-demo --data-dir data/synthetic/seed
+python -m pytest -q
+ruff check .
+```
+
+## Evidence limitations
+
+GitHub repository contents were inspected after implementation. Local execution was not available in this session because the runtime could not reach GitHub to download the repository, and the GitHub commit status endpoint currently reports no status entries for the latest documentation commit. Therefore test/CI success is **not claimed** here until GitHub Actions produces a completed run.
+
+## Next production work
+
+The remaining work is deliberately operational rather than architectural: persist Bronze/Silver data, add a real API, connect a selected LLM behind the reviewer protocol, add observability, authentication/authorization, deployment infrastructure, and expand source adapters.
