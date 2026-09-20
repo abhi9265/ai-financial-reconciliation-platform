@@ -114,7 +114,7 @@ async def reconcile_uploaded_files(
         )
     summary["tenant_id"] = tenant_id
     summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
-    log_event("tenant_reconciliation_completed", tenant_id=tenant_id, **summary)
+    log_event("tenant_reconciliation_completed", **summary)
     return summary
 
 
