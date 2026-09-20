@@ -19,10 +19,20 @@ class Settings:
     object_store_path: str
     s3_bucket: str | None
     s3_prefix: str
+    tenant_api_keys: dict[str, str]
 
     @classmethod
     def from_env(cls) -> "Settings":
         provider = os.getenv("AI_PROVIDER", "none").strip().lower()
+        raw_tenants = os.getenv("TENANT_API_KEYS", "")
+        tenant_api_keys: dict[str, str] = {}
+        for entry in raw_tenants.split(","):
+            if not entry.strip() or ":" not in entry:
+                continue
+            tenant, key = entry.split(":", 1)
+            if tenant.strip() and key.strip():
+                tenant_api_keys[key.strip()] = tenant.strip()
+
         return cls(
             api_key=os.getenv("RECONCILIATION_API_KEY"),
             openai_api_key=os.getenv("OPENAI_API_KEY"),
@@ -36,4 +46,5 @@ class Settings:
             object_store_path=os.getenv("OBJECT_STORE_PATH", "data/objects"),
             s3_bucket=os.getenv("S3_BUCKET") or None,
             s3_prefix=os.getenv("S3_PREFIX", "reconciliation"),
+            tenant_api_keys=tenant_api_keys,
         )

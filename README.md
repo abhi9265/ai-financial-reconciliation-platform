@@ -189,3 +189,16 @@ Example:
       -F "purchase_file=@data/synthetic/seed/purchase_invoices.csv"
 
 For production S3, set `OBJECT_STORE=s3`, `S3_BUCKET`, and AWS credentials through the deployment platform's secret/identity mechanism.
+
+
+### Tenant authorization
+
+For multi-tenant deployments, set `TENANT_API_KEYS` as a comma-separated mapping of tenant IDs to unique API keys:
+
+```text
+TENANT_API_KEYS=acme_01:replace-with-secret-a,other_01:replace-with-secret-b
+```
+
+The `/v1/reconcile` endpoint requires `X-Tenant-ID` and, when this mapping is configured, verifies that the supplied `X-API-Key` is authorized for that tenant. A valid key for one tenant cannot be used to access another tenant.
+
+Do not commit real API keys. Store production credentials in the deployment secret manager.

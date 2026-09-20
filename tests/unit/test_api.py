@@ -72,3 +72,33 @@ def test_tenant_reconcile_requires_tenant(monkeypatch):
         },
     )
     assert response.status_code == 400
+
+
+def test_tenant_api_key_is_bound_to_tenant(monkeypatch):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("TENANT_API_KEYS", "acme_01:key-acme,other_01:key-other")
+
+    response = client.post(
+        "/v1/reconcile",
+        headers={"X-API-Key": "key-acme", "X-Tenant-ID": "other_01"},
+        files={
+            "bank_file": ("bank.csv", b"a,b\n1,2\n", "text/csv"),
+            "purchase_file": ("purchase.csv", b"a,b\n1,2\n", "text/csv"),
+        },
+    )
+    assert response.status_code == 403
+
+    from pathlib import Path
+
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    response = client.post(
+        "/v1/reconcile",
+        headers={"X-API-Key": "key-acme", "X-Tenant-ID": "acme_01"},
+        files={
+            "bank_file": ("bank.csv", bank, "text/csv"),
+            "purchase_file": ("purchase.csv", purchase, "text/csv"),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["tenant_id"] == "acme_01"
