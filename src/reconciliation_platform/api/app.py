@@ -24,7 +24,7 @@ from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
 from reconciliation_platform.ingestion.uploads import build_object_key, validate_tenant_id
 from reconciliation_platform.models.canonical_transaction import SourceSystem
-from reconciliation_platform.rate_limit import RateLimiter
+from reconciliation_platform.rate_limit import RateLimiter, RedisRateLimiter
 
 configure_logging()
 app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
@@ -41,7 +41,18 @@ async def request_context(request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round((time.perf_counter()-started)*1000,2))
     return response
-_rate_limiter = RateLimiter(limit=Settings.from_env().rate_limit_per_minute)
+_settings_at_start = Settings.from_env()
+try:
+    _rate_limiter = (
+        RedisRateLimiter(
+            _settings_at_start.redis_url,
+            limit=_settings_at_start.rate_limit_per_minute,
+        )
+        if _settings_at_start.job_queue == "celery"
+        else RateLimiter(limit=_settings_at_start.rate_limit_per_minute)
+    )
+except Exception:
+    _rate_limiter = RateLimiter(limit=_settings_at_start.rate_limit_per_minute)
 
 
 class ReconciliationRequest(BaseModel):
