@@ -56,6 +56,28 @@ def test_ground_truth_evaluation_distinguishes_safe_review_from_false_match():
     assert m.pair_accuracy == 1.0
 
 
+def test_ground_truth_evaluation_flags_false_auto_match():
+    decisions = [
+        ReconciliationDecision("B1", "I1", "MATCHED", "FUZZY", 0.9, "ok", ()),
+        ReconciliationDecision("B2", "I2", "MATCHED", "FUZZY", 0.9, "incorrect", ()),
+        ReconciliationDecision("B3", None, "UNMATCHED", "NONE", 0.0, "missing", ()),
+    ]
+    truth = [
+        {"bank_transaction_id": "B1", "invoice_record_id": "I1", "relationship": "MATCH", "defect_type": ""},
+        {"bank_transaction_id": "B2", "invoice_record_id": "I2", "relationship": "UNMATCHED", "defect_type": "AMOUNT_MISMATCH"},
+        {"bank_transaction_id": "B3", "invoice_record_id": "I3", "relationship": "UNMATCHED", "defect_type": "MISSING_INVOICE"},
+    ]
+
+    metrics = evaluate_against_ground_truth(decisions, truth)
+
+    assert metrics.correct_auto_matches == 1
+    assert metrics.false_auto_matches == 1
+    assert metrics.match_precision == 0.5
+    assert metrics.match_recall == 1.0
+    assert metrics.false_positive_rate == 0.5
+    assert metrics.exception_capture_rate == 1.0
+
+
 def test_ground_truth_loader_validates_duplicate_ids():
     path = Path("data/synthetic/seed/ground_truth.csv")
     rows = load_ground_truth(path)
