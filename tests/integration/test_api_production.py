@@ -92,3 +92,35 @@ def test_cross_tenant_job_access_is_rejected(monkeypatch, tmp_path) -> None:
         "/v1/reconcile/jobs/not-your-job",
         headers={"X-API-Key": "acme-key", "X-Tenant-ID": "other_01"},
     ).status_code == 403
+
+
+def test_duplicate_async_submission_reuses_job(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
+    monkeypatch.setenv("RECONCILIATION_API_KEY", "root-key")
+    monkeypatch.setenv("TENANT_API_KEYS", "acme_01:root-key")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "reconciliation.db"))
+    monkeypatch.setenv("RATE_LIMIT_BACKEND", "memory")
+    monkeypatch.setenv("JOB_QUEUE", "background")
+    monkeypatch.setenv("AI_PROVIDER", "none")
+
+    client = TestClient(app)
+    headers = {**_headers(), "Idempotency-Key": "same-run"}
+    with BANK.open("rb") as bank, PURCHASE.open("rb") as purchase:
+        first = client.post(
+            "/v1/reconcile/async",
+            headers=headers,
+            files={"bank_file": ("bank.csv", bank, "text/csv"), "purchase_file": ("purchase.csv", purchase, "text/csv")},
+        )
+    with BANK.open("rb") as bank, PURCHASE.open("rb") as purchase:
+        second = client.post(
+            "/v1/reconcile/async",
+            headers=headers,
+            files={"bank_file": ("bank.csv", bank, "text/csv"), "purchase_file": ("purchase.csv", purchase, "text/csv")},
+        )
+
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert second.json()["job_id"] == first.json()["job_id"]
+    assert second.json()["idempotent_replay"] is True
