@@ -20,6 +20,11 @@ class SQLiteStore:
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
+        if self.path == ":memory:":
+            if self._memory_connection is None:
+                self._memory_connection = sqlite3.connect(":memory:")
+                self._memory_connection.row_factory = sqlite3.Row
+            return self._memory_connection
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
         return connection
