@@ -12,7 +12,6 @@ from reconciliation_platform.observability import configure_logging, log_event
 from reconciliation_platform.pipeline import run_pipeline, summarize
 from reconciliation_platform.decisioning.review import build_review_cases
 from reconciliation_platform.storage.sqlite import SQLiteStore
-from reconciliation_platform.storage.sqlite import SQLiteStore
 
 configure_logging()
 app = FastAPI(title="AI Financial Reconciliation Platform", version="0.3.0")
