@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import secrets
 import tempfile
+import uuid
+from fastapi import BackgroundTasks
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
@@ -128,6 +130,92 @@ async def reconcile_uploaded_files(
     summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
     log_event("tenant_reconciliation_completed", **summary)
     return summary
+
+
+def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase_key: str) -> None:
+    settings = Settings.from_env()
+    store = build_store(settings)
+    store.update_job(job_id, tenant_id=tenant_id, status="running")
+    try:
+        object_store = build_object_store(settings)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "bank_transactions.csv").write_bytes(object_store.get(bank_key))
+            (root / "purchase_invoices.csv").write_bytes(object_store.get(purchase_key))
+            result = run_pipeline(root)
+            summary = summarize(result)
+            ai_results = escalate_reviews(result["decisions"], build_ai_reviewer(settings))
+            summary["ai_review"] = {
+                "provider": settings.ai_provider,
+                "model": next(iter(ai_results.values())).model if ai_results else "none",
+                "cases_reviewed": len(ai_results),
+                "recommendations": {
+                    bank_id: {
+                        "recommendation": review.recommendation,
+                        "confidence": review.confidence,
+                        "rationale": review.rationale,
+                        "model": review.model,
+                    }
+                    for bank_id, review in ai_results.items()
+                },
+            }
+            summary["review_cases_persisted"] = store.save_review_cases(
+                build_review_cases(result["decisions"]), tenant_id=tenant_id
+            )
+            summary["tenant_id"] = tenant_id
+            summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
+        store.update_job(job_id, tenant_id=tenant_id, status="succeeded", result=summary)
+        log_event("reconciliation_job_completed", job_id=job_id, tenant_id=tenant_id)
+    except Exception as exc:
+        store.update_job(job_id, tenant_id=tenant_id, status="failed", error=str(exc))
+        log_event("reconciliation_job_failed", job_id=job_id, tenant_id=tenant_id, error=str(exc))
+
+
+@app.post("/v1/reconcile/async", status_code=202)
+async def enqueue_reconciliation(
+    background_tasks: BackgroundTasks,
+    bank_file: UploadFile = File(...),  # noqa: B008
+    purchase_file: UploadFile = File(...),  # noqa: B008
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    _validate_upload(bank_file)
+    _validate_upload(purchase_file)
+    settings = Settings.from_env()
+    object_store = build_object_store(settings)
+    bank_key = build_object_key(tenant_id, SourceSystem.BANK, bank_file.filename or "bank.csv")
+    purchase_key = build_object_key(tenant_id, SourceSystem.PURCHASE_REGISTER, purchase_file.filename or "purchase.csv")
+    max_bytes = 10 * 1024 * 1024
+    bank_content = await bank_file.read()
+    purchase_content = await purchase_file.read()
+    if len(bank_content) > max_bytes or len(purchase_content) > max_bytes:
+        raise HTTPException(status_code=413, detail="each upload must be <= 10 MiB")
+    object_store.put(bank_key, bank_content)
+    object_store.put(purchase_key, purchase_content)
+    job_id = uuid.uuid4().hex
+    store = build_store(settings)
+    store.create_job(
+        job_id=job_id, tenant_id=tenant_id, bank_key=bank_key, purchase_key=purchase_key
+    )
+    background_tasks.add_task(_run_reconciliation_job, job_id, tenant_id, bank_key, purchase_key)
+    return {
+        "job_id": job_id,
+        "tenant_id": tenant_id,
+        "status": "queued",
+        "objects": {"bank": bank_key, "purchase_register": purchase_key},
+    }
+
+
+@app.get("/v1/reconcile/jobs/{job_id}")
+def reconciliation_job_status(
+    job_id: str,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    job = build_store(Settings.from_env()).get_job(job_id, tenant_id=tenant_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    return job
 
 
 @app.get("/health")
