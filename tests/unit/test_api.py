@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from reconciliation_platform.api.app import app
 
 os.environ["RECONCILIATION_DB"] = ":memory:"
+os.environ["API_KEY_REQUIRED"] = "false"
 client = TestClient(app)
 
 
@@ -24,3 +25,13 @@ def test_reconcile_endpoint():
     assert body["evaluation"]["precision"] == 1.0
     assert body["evaluation"]["recall"] == 1.0
     assert body["review_cases_persisted"] == 5
+
+
+def test_protected_storage_requires_api_key(monkeypatch):
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
+    monkeypatch.setenv("RECONCILIATION_API_KEY", "secret")
+    response = client.get("/storage/health")
+    assert response.status_code == 401
+
+    response = client.get("/storage/health", headers={"X-API-Key": "secret"})
+    assert response.status_code == 200
