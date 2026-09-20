@@ -50,7 +50,7 @@ def test_thresholds_are_explicit_configuration():
     config = ReconciliationConfig(
         date_tolerance_days=1,
         near_amount_tolerance=Decimal("2.00"),
-        fuzzy_auto_match_threshold=0.30,
+        fuzzy_review_threshold=0.30,\n        fuzzy_auto_match_threshold=0.30,
     )
     result = reconcile([tx("B1", 101, "OTHER", 2)], [inv("I1", 100, "INV1", 1)], config=config)
     assert result[0].status == "MATCHED"
