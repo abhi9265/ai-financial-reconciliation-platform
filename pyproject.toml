@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-financial-reconciliation-platform"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-assisted financial reconciliation platform for Indian SMEs and CA firms"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,6 +18,9 @@ dev = [
   "pytest>=8.0,<9.0",
   "ruff>=0.6,<1.0",
 ]
+
+[project.scripts]
+reconcile-demo = "reconciliation_platform.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
