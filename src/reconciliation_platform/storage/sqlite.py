@@ -1,0 +1,141 @@
+"""SQLite persistence for batches, idempotency keys, and review cases."""
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+from typing import Iterable
+
+from reconciliation_platform.decisioning.review import ReviewCase
+from reconciliation_platform.ingestion.batch import compute_idempotency_key
+from reconciliation_platform.models.canonical_transaction import CanonicalTransaction
+
+
+class SQLiteStore:
+    """Small transactional store suitable for the MVP and local deployment."""
+
+    def __init__(self, path: str | Path = "data/reconciliation.db") -> None:
+        self.path = str(path)
+        if self.path != ":memory:":
+            Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        self._initialize()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.path)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS ingestion_batches (
+                    batch_id TEXT PRIMARY KEY,
+                    source_system TEXT NOT NULL,
+                    file_fingerprint TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(source_system, file_fingerprint, schema_version)
+                );
+
+                CREATE TABLE IF NOT EXISTS idempotency_records (
+                    idempotency_key TEXT PRIMARY KEY,
+                    source_system TEXT NOT NULL,
+                    source_record_id TEXT NOT NULL,
+                    record_hash TEXT NOT NULL,
+                    batch_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS review_cases (
+                    case_id TEXT PRIMARY KEY,
+                    record_id TEXT NOT NULL,
+                    candidate_record_id TEXT,
+                    reason TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                """
+            )
+
+    def register_batch(
+        self,
+        *,
+        batch_id: str,
+        source_system: str,
+        file_fingerprint: str,
+        schema_version: str,
+        created_at: str,
+    ) -> bool:
+        """Persist a batch. Return False when the same batch was already registered."""
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO ingestion_batches
+                (batch_id, source_system, file_fingerprint, schema_version, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (batch_id, source_system, file_fingerprint, schema_version, created_at),
+            )
+            return cursor.rowcount == 1
+
+    def register_transactions(
+        self,
+        transactions: Iterable[CanonicalTransaction],
+        *,
+        batch_id: str,
+        created_at: str,
+    ) -> tuple[int, int]:
+        """Persist record-level idempotency keys and return (inserted, duplicates)."""
+        inserted = 0
+        duplicates = 0
+        with self._connect() as connection:
+            for tx in transactions:
+                key = compute_idempotency_key(
+                    tx.source_system, tx.source_record_id, tx.record_hash
+                )
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO idempotency_records
+                    (idempotency_key, source_system, source_record_id, record_hash, batch_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        key,
+                        tx.source_system.value,
+                        tx.source_record_id,
+                        tx.record_hash,
+                        batch_id,
+                        created_at,
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    inserted += 1
+                else:
+                    duplicates += 1
+        return inserted, duplicates
+
+    def save_review_cases(self, cases: Iterable[ReviewCase]) -> int:
+        inserted = 0
+        with self._connect() as connection:
+            for case in cases:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO review_cases
+                    (case_id, record_id, candidate_record_id, reason, confidence, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        case.case_id,
+                        case.record_id,
+                        case.candidate_record_id,
+                        case.reason,
+                        case.confidence,
+                        case.created_at.isoformat(),
+                    ),
+                )
+                inserted += cursor.rowcount
+        return inserted
+
+    def review_case_count(self) -> int:
+        with self._connect() as connection:
+            return int(connection.execute("SELECT COUNT(*) FROM review_cases").fetchone()[0])
