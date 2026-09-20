@@ -25,7 +25,7 @@ jobs:
           python -m pip install -e .
           python -m pip install pip-audit
       - name: Audit Python dependencies
-        run: python -m pip_audit --strict
+        run: pip-audit --strict
 
   container-build:
     runs-on: ubuntu-latest
