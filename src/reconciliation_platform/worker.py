@@ -20,8 +20,24 @@ celery_app.conf.update(
 )
 
 
-@celery_app.task(name="reconciliation.process_job")
-def process_job(job_id: str, tenant_id: str, bank_key: str, purchase_key: str) -> None:
+@celery_app.task(
+    name="reconciliation.process_job",
+    bind=True,
+    max_retries=3,
+    acks_late=True,
+    retry_backoff=True,
+    retry_jitter=True,
+)
+def process_job(self, job_id: str, tenant_id: str, bank_key: str, purchase_key: str) -> None:
     from reconciliation_platform.api.app import _run_reconciliation_job
 
-    _run_reconciliation_job(job_id, tenant_id, bank_key, purchase_key)
+    try:
+        _run_reconciliation_job(
+            job_id,
+            tenant_id,
+            bank_key,
+            purchase_key,
+            raise_on_error=True,
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc) from exc
