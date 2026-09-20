@@ -35,4 +35,6 @@ jobs:
       - name: Build production container
         run: docker build --pull -t reconciliation-platform:${{ github.sha }} .
       - name: Validate Compose configuration
+        env:
+          RECONCILIATION_API_KEY: ci-only-placeholder
         run: docker compose config
