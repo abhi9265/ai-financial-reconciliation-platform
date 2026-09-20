@@ -16,7 +16,14 @@ The repository now contains an executable synthetic-data MVP covering:
 - deterministic reconciliation with conservative fuzzy fallback
 - anomaly classification
 - human-review case generation
-- automated unit + integration tests\n- FastAPI API boundary with health and reconciliation endpoints\n- SQLite persistence for batch registration, record-level idempotency, and review cases\n- structured JSON logging with timing instrumentation\n- ground-truth evaluation with precision/recall/exception-capture metrics
+- automated unit + integration tests
+- FastAPI API boundary with health and reconciliation endpoints
+- SQLite persistence for batch registration, record-level idempotency, and review cases
+- structured JSON logging with timing instrumentation
+- ground-truth evaluation with precision/recall/exception-capture metrics
+- optional OpenAI Responses API reviewer for ambiguous cases only
+- API-key authentication and data-root path validation
+- environment-driven runtime configuration with no committed secrets
 - GitHub Actions CI
 - CLI execution
 
@@ -117,3 +124,14 @@ No customer financial data, credentials, secrets, or PII should be committed.
 ## Report
 
 See [reports/phase1_mvp_report.md](reports/phase1_mvp_report.md) for the current implementation report, benchmark expectations, engineering decisions, and limitations.
+
+
+## AI reviewer
+
+The deterministic reconciliation engine remains authoritative. When `AI_PROVIDER=openai`, only records already classified as `REVIEW` are sent to the OpenAI Responses API. The adapter requests a strict structured response containing a recommendation, confidence, and rationale; the API returns this as review evidence and does not convert the AI recommendation into an automatic match. The default `AI_PROVIDER=none` keeps the system fully deterministic and offline.
+
+OpenAI API credentials must be supplied through the runtime environment and are never committed to the repository. See `.env.example` for configuration names.
+
+## API security
+
+The reconciliation and storage endpoints require `X-API-Key` by default. Set `API_KEY_REQUIRED=false` only for local development/testing. The API also restricts reconciliation input paths to the repository's `data/` root, reducing the risk of arbitrary local filesystem access.
