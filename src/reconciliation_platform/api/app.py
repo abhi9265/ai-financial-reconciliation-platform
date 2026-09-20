@@ -1,18 +1,22 @@
 """FastAPI boundary around the reconciliation pipeline."""
 from __future__ import annotations
 
-import os\nfrom pathlib import Path
+import os
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from reconciliation_platform.evaluation.metrics import evaluate_against_ground_truth, load_ground_truth
 from reconciliation_platform.observability import configure_logging, log_event
-from reconciliation_platform.pipeline import run_pipeline, summarize\nfrom reconciliation_platform.decisioning.review import build_review_cases\nfrom reconciliation_platform.storage.sqlite import SQLiteStore
+from reconciliation_platform.pipeline import run_pipeline, summarize
+from reconciliation_platform.decisioning.review import build_review_cases
+from reconciliation_platform.storage.sqlite import SQLiteStore
 from reconciliation_platform.storage.sqlite import SQLiteStore
 
 configure_logging()
-app = FastAPI(title="AI Financial Reconciliation Platform", version="0.3.0")\n
+app = FastAPI(title="AI Financial Reconciliation Platform", version="0.3.0")
+
 
 class ReconciliationRequest(BaseModel):
     data_dir: str = Field(default="data/synthetic/seed")
