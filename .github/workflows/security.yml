@@ -24,6 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
           python -m pip install pip-audit
+          python -m pip uninstall -y ai-financial-reconciliation-platform
       - name: Audit Python dependencies
         run: pip-audit --strict --skip-editable
 
