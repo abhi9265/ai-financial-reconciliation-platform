@@ -26,10 +26,15 @@ services:
       AI_MODEL: ${AI_MODEL:-gpt-5.6-luna}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-20}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OBJECT_STORE: ${OBJECT_STORE:-local}
+      OBJECT_STORE_PATH: /app/data/objects
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_PREFIX: ${S3_PREFIX:-reconciliation}
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data:ro
+      - object_data:/app/data/objects
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
       interval: 10s
@@ -38,3 +43,4 @@ services:
 
 volumes:
   postgres_data:
+  object_data:
