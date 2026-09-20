@@ -54,10 +54,6 @@ services:
       timeout: 5s
       retries: 10
 
-volumes:
-  postgres_data:
-  object_data:
-
   worker:
     build: .
     depends_on:
@@ -81,3 +77,6 @@ volumes:
       - ./data:/app/data:ro
       - object_data:/app/data/objects
 
+volumes:
+  postgres_data:
+  object_data:
