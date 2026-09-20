@@ -4,6 +4,7 @@ from __future__ import annotations
 import secrets
 import tempfile
 import uuid
+import time
 from fastapi import BackgroundTasks
 from pathlib import Path
 
@@ -27,7 +28,20 @@ from reconciliation_platform.rate_limit import RateLimiter
 
 configure_logging()
 app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
-_rate_limiter = RateLimiter()
+
+
+@app.middleware("http")
+async def request_context(request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    started = time.perf_counter()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round((time.perf_counter()-started)*1000,2))
+    return response
+_rate_limiter = RateLimiter(limit=Settings.from_env().rate_limit_per_minute)
 
 
 class ReconciliationRequest(BaseModel):
