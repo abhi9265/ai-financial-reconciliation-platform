@@ -15,6 +15,7 @@ class SQLiteStore:
 
     def __init__(self, path: str | Path = "data/reconciliation.db") -> None:
         self.path = str(path)
+        self._memory_connection: sqlite3.Connection | None = None
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
