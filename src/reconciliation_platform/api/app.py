@@ -58,9 +58,21 @@ def build_ai_reviewer(settings: Settings):
     return NoOpAIReviewer()
 
 
-def require_tenant_id(x_tenant_id: str | None = Header(default=None)) -> str:
+def require_tenant_id(
+    x_api_key: str | None = Header(default=None),
+    x_tenant_id: str | None = Header(default=None),
+) -> str:
+    settings = Settings.from_env()
     if not x_tenant_id:
         raise HTTPException(status_code=400, detail="X-Tenant-ID header is required")
+    if settings.tenant_api_keys:
+        if not x_api_key:
+            raise HTTPException(status_code=401, detail="tenant API key is required")
+        tenant = settings.tenant_api_keys.get(x_api_key)
+        if tenant is None:
+            raise HTTPException(status_code=401, detail="invalid tenant credentials")
+        if tenant != x_tenant_id:
+            raise HTTPException(status_code=403, detail="API key is not authorized for this tenant")
     try:
         return validate_tenant_id(x_tenant_id)
     except ValueError as exc:
