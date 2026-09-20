@@ -29,13 +29,13 @@ class SourceContract:
 SOURCE_CONTRACTS: Mapping[SourceSystem, SourceContract] = {
     SourceSystem.BANK: SourceContract(
         SourceSystem.BANK,
-        frozenset({"transaction_date", "amount", "description", "source_record_id"}),
-        frozenset({"reference_number", "debit", "credit", "currency"}),
+        frozenset({"transaction_id", "transaction_date", "amount", "narration", "reference", "account_number"}),
+        frozenset({"value_date", "debit", "credit"}),
     ),
     SourceSystem.PURCHASE_REGISTER: SourceContract(
         SourceSystem.PURCHASE_REGISTER,
-        frozenset({"invoice_number", "invoice_date", "amount", "counterparty_name", "source_record_id"}),
-        frozenset({"counterparty_gstin", "taxable_amount", "cgst", "sgst", "igst", "total_tax"}),
+        frozenset({"invoice_record_id", "invoice_number", "invoice_date", "vendor_name", "gstin", "taxable_value", "total"}),
+        frozenset({"cgst", "sgst", "igst"}),
     ),
     SourceSystem.SALES_REGISTER: SourceContract(
         SourceSystem.SALES_REGISTER,
