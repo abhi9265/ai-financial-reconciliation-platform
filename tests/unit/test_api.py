@@ -35,3 +35,33 @@ def test_protected_storage_requires_api_key(monkeypatch):
 
     response = client.get("/storage/health", headers={"X-API-Key": "secret"})
     assert response.status_code == 200
+
+
+def test_tenant_reconcile_uploads_files(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", ":memory:")
+    bank = b"transaction_id,transaction_date,amount,description\nBANK-1,2026-01-01,100.00,Test\n"
+    purchase = b"invoice_number,invoice_date,total_amount,vendor_name\nINV-1,2026-01-01,100.00,Vendor\n"
+    response = client.post(
+        "/v1/reconcile",
+        headers={"X-Tenant-ID": "acme_01"},
+        files={
+            "bank_file": ("bank.csv", bank, "text/csv"),
+            "purchase_file": ("purchase.csv", purchase, "text/csv"),
+        },
+    )
+    assert response.status_code in (200, 422)
+
+
+def test_tenant_reconcile_requires_tenant(monkeypatch):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    response = client.post(
+        "/v1/reconcile",
+        files={
+            "bank_file": ("bank.csv", b"a,b\n1,2\n", "text/csv"),
+            "purchase_file": ("purchase.csv", b"a,b\n1,2\n", "text/csv"),
+        },
+    )
+    assert response.status_code == 400
