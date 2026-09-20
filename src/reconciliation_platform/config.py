@@ -54,5 +54,5 @@ class Settings:
             job_queue=os.getenv("JOB_QUEUE", "background").strip().lower(),
             redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
             rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")),
-            rate_limit_backend=os.getenv("RATE_LIMIT_BACKEND", "redis").strip().lower(),
+            rate_limit_backend=os.getenv("RATE_LIMIT_BACKEND", "memory").strip().lower(),
         )
