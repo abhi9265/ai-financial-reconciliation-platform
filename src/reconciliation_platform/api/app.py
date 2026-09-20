@@ -50,6 +50,9 @@ def reconcile(request: ReconciliationRequest) -> dict:
             "pair_accuracy": metrics.pair_accuracy,
         }
 
+    store = SQLiteStore(os.getenv("RECONCILIATION_DB", "data/reconciliation.db"))
+    inserted_reviews = store.save_review_cases(build_review_cases(result["decisions"]))
+    summary["review_cases_persisted"] = inserted_reviews
     log_event("reconciliation_completed", **summary)
     return summary
 
