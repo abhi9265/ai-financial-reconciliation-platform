@@ -1,245 +1,481 @@
 # AI-Powered Financial Reconciliation Platform
 
-An engineering-focused financial reconciliation platform for Indian SMEs and CA firms.
+> **Production-oriented data engineering case study for financial reconciliation, exception management, and AI-assisted review.**
 
-The system converts heterogeneous financial records into a common transaction model, applies evidence-first reconciliation, identifies exceptions, and creates traceable review cases. AI is intentionally positioned as an escalation layer rather than the foundation.
+A multi-tenant reconciliation platform designed around a simple engineering principle:
 
-## Current MVP
+**deterministic evidence decides; AI escalates ambiguity.**
 
-The repository now contains an executable synthetic-data MVP covering:
+The system ingests heterogeneous financial records, validates and normalizes them into a canonical transaction model, reconciles records through ordered evidence tiers, persists auditable decisions, and exposes asynchronous processing for scale.
 
-- source-specific ingestion contracts
-- SHA-256 file fingerprinting and deterministic batch identity
-- source-to-canonical normalization
-- lineage and record hashing
-- business/data-quality validation
-- deterministic reconciliation with conservative fuzzy fallback
-- anomaly classification
-- human-review case generation
-- automated unit + integration tests
-- FastAPI API boundary with health and reconciliation endpoints
-- SQLite persistence for batch registration, record-level idempotency, and review cases
-- structured JSON logging with timing instrumentation
-- ground-truth evaluation with precision/recall/exception-capture metrics
-- optional OpenAI Responses API reviewer for ambiguous cases only
-- API-key authentication and data-root path validation
-- environment-driven runtime configuration with no committed secrets
-- GitHub Actions CI
-- CLI execution
+This repository is intentionally built as a **systems engineering portfolio project**, not a notebook or CRUD demo.
 
-## Workflow
+---
 
-```
-Source Files
-    ↓
-Ingest + Contract Validation
-    ↓
-Batch Identity / Fingerprint
-    ↓
-Normalize
-    ↓
-Canonical Transactions
-    ↓
-Reconciliation
-    ├── Deterministic
-    ├── Fuzzy
-    └── Review
-    ↓
-Anomaly Detection
-    ↓
-Human Review Cases
-    ↓
-Evaluation / Reporting
-```
+## Engineering Snapshot
 
-## Synthetic benchmark
+| Capability | Implementation |
+|---|---|
+| API | FastAPI |
+| Language | Python 3.11+ |
+| Data processing | Pandas / PyArrow / deterministic matching |
+| Persistence | PostgreSQL / SQLite fallback |
+| Object storage | S3 / local object store |
+| Async processing | Celery + Redis |
+| AI | OpenAI Responses API behind provider abstraction |
+| Authentication | API key + tenant binding |
+| Isolation | Tenant-scoped storage, jobs, review cases and audit events |
+| Observability | Structured JSON logs, request IDs, metrics, audit trail |
+| Reliability | Idempotency, deterministic hashes, retries/redelivery configuration |
+| Packaging | Docker |
+| Local orchestration | Docker Compose |
+| CI/CD | GitHub Actions |
+| Security | Dependency audit, container build validation, security headers, rate limiting |
+| Test coverage | Automated unit + integration suite |
 
-The current seed contains 100 bank transactions and 95 purchase invoices. The integration benchmark expects:
-
-| Outcome | Count |
-| --- | ---: |
-| Auto matched | 90 |
-| Review: referenced invoice amount mismatch | 5 |
-| Unmatched: invoice absent | 5 |
-
-The benchmark is deliberately synthetic and reproducible. It is not a production accuracy claim.
-
-## Run locally
-
-```bash
-python -m pip install -e ".[dev]"
-reconcile-demo --data-dir data/synthetic/seed
-```
-
-Or:
-
-```bash
-python -m pytest -q
-ruff check .
-```
+---
 
 ## Architecture
 
-See [architecture/architecture.md](architecture/architecture.md) for the system design and evidence boundaries.
+```mermaid
+flowchart LR
+    C[Client / Tenant] --> API[FastAPI API]
+    API --> AUTH[Tenant Auth + Rate Limit]
+    AUTH --> OBJ[(Object Storage)]
+    AUTH --> JOB[(PostgreSQL)]
+    API --> Q[Redis]
+    Q --> W[Celery Workers]
+    W --> OBJ
+    W --> JOB
+    W --> ING[Ingestion + Validation]
+    ING --> CAN[Canonical Transaction Model]
+    CAN --> REC[Reconciliation Engine]
+    REC --> AN[Anomaly Detection]
+    AN --> REV[Human Review Cases]
+    REV -. ambiguous cases .-> AI[AI Reviewer]
+    AI --> REV
+    REC --> AUD[(Audit Events)]
+    API --> MET[Metrics + Structured Logs]
+```
 
-## Repository structure
+### Processing contract
 
 ```text
-ai-financial-reconciliation-platform/
-├── architecture/
+Upload
+  │
+  ├── authenticate tenant
+  ├── validate file type / size
+  └── persist raw object
+        │
+        ▼
+   Ingestion Boundary
+        │
+        ├── fingerprint
+        ├── batch identity
+        └── idempotency
+        │
+        ▼
+   Validation + Normalization
+        │
+        ▼
+   Canonical Transactions
+        │
+        ▼
+   Reconciliation
+        ├── Tier 1: deterministic evidence
+        ├── Tier 2: conservative fuzzy evidence
+        └── Tier 3: human / AI-assisted review
+        │
+        ▼
+   Decision + Explanation
+        │
+        ├── matched
+        ├── unmatched
+        └── review
+        │
+        ▼
+   Audit + Metrics + Report
+```
+
+---
+
+## Why the Architecture Is Designed This Way
+
+### 1. Deterministic core, AI at the boundary
+
+Financial reconciliation is a high-consequence workflow. The system therefore does **not** allow an LLM to become the source of truth.
+
+The decision hierarchy is:
+
+1. Strong deterministic evidence
+2. Conservative fuzzy evidence
+3. Explicit exception
+4. Optional AI review
+5. Human approval
+
+AI receives only already-validated ambiguous cases and returns structured review evidence. An AI recommendation does not silently become an automatic match.
+
+### 2. Idempotency is a first-class concern
+
+Repeated ingestion should not create duplicate business state.
+
+The platform uses:
+
+- SHA-256 file fingerprints
+- deterministic ingestion batch IDs
+- canonical record hashes
+- persisted idempotency keys
+- tenant-scoped job identifiers
+
+This makes retries and replay behavior observable instead of relying on application luck.
+
+### 3. Canonical data model
+
+Source-specific schemas are normalized into a canonical transaction contract.
+
+The model preserves:
+
+- transaction semantics
+- debit/credit direction
+- transaction and invoice dates independently
+- counterparty information
+- tax components
+- source system
+- source record ID
+- source file and row lineage
+- schema version
+- deterministic record identity
+
+This prevents source-specific fields from leaking into the reconciliation engine.
+
+---
+
+## Matching Engine
+
+The reconciliation engine uses an ordered evidence strategy.
+
+### Tier 1 — deterministic
+
+Signals include:
+
+- exact reference/invoice identifier
+- exact amount
+- date tolerance
+- compatible counterparty
+- transaction-type compatibility
+
+A reference match with a material amount mismatch is **not silently accepted**. It becomes an exception.
+
+### Tier 2 — fuzzy
+
+Ambiguous candidates can be evaluated using multiple signals:
+
+- counterparty similarity
+- amount difference
+- date difference
+- reference similarity
+- transaction compatibility
+
+The implementation deliberately uses conservative thresholds rather than maximizing match volume.
+
+### Tier 3 — AI-assisted review
+
+The AI adapter is provider-neutral and requests a structured response containing:
+
+- recommendation
+- confidence
+- rationale
+- model metadata
+
+The deterministic engine remains authoritative.
+
+---
+
+## Synthetic Benchmark
+
+The repository includes a reproducible synthetic benchmark:
+
+- **100** bank transactions
+- **95** purchase invoices
+- **90** deterministic matches
+- **5** amount-mismatch review cases
+- **5** unmatched transactions
+
+Current evaluation:
+
+| Metric | Result |
+|---|---:|
+| Precision | **1.00** |
+| Recall | **1.00** |
+| Pair accuracy | **1.00** |
+| Exception capture | **1.00** |
+| False auto-matches | **0** |
+
+> These are benchmark results on synthetic data, not claims about production financial accuracy.
+
+---
+
+## Multi-Tenant Design
+
+Tenant boundaries are enforced across the application rather than being a UI convention.
+
+### Tenant-aware resources
+
+- uploaded objects
+- reconciliation jobs
+- review cases
+- audit events
+- API credentials
+- rate-limit keys
+
+Example object namespace:
+
+```text
+tenants/{tenant_id}/raw/{source_system}/{file}
+```
+
+A tenant API key is cryptographically compared and bound to its authorized tenant. A valid credential for tenant A cannot be used to access tenant B.
+
+---
+
+## Distributed Processing
+
+For production-style workloads:
+
+```text
+FastAPI
+   │
+   ▼
+PostgreSQL ── job state
+   │
+   └── Redis ── Celery broker
+                    │
+                    ▼
+              Worker pool
+                    │
+                    ▼
+             Reconciliation
+```
+
+Celery is configured with:
+
+- JSON task serialization
+- late acknowledgements
+- prefetch multiplier = 1
+- task-start tracking
+- bounded hard/soft execution time
+- broker connection retry on startup
+
+This separates request handling from reconciliation execution and provides a path to horizontal worker scaling.
+
+---
+
+## Reliability & Observability
+
+Every request receives an `X-Request-ID`.
+
+The platform records:
+
+- request route
+- HTTP status
+- request latency
+- reconciliation outcomes
+- job lifecycle events
+- AI review metadata
+- tenant-scoped audit events
+
+Operational endpoints include:
+
+- `GET /health`
+- `GET /ready`
+- `GET /metrics`
+- `GET /v1/audit`
+
+The audit layer is append-oriented and tenant scoped.
+
+---
+
+## Security Model
+
+The repository includes several defense layers:
+
+- tenant-bound API authentication
+- constant-time API-key comparison
+- tenant authorization
+- file type validation
+- 10 MiB upload limits
+- safe tenant identifiers
+- object-key path traversal protection
+- repository data-path validation
+- security response headers
+- tenant-scoped rate limiting
+- dependency vulnerability auditing
+- container build validation
+- secrets excluded from source control
+
+Production secrets are expected to come from the deployment platform's secret-management mechanism.
+
+---
+
+## Production Runtime
+
+Docker Compose provides the complete local production topology:
+
+```text
+┌──────────────┐
+│    FastAPI   │
+└──────┬───────┘
+       │
+ ┌─────┴─────────────┐
+ │                   │
+ ▼                   ▼
+PostgreSQL         Redis
+                       │
+                       ▼
+                 Celery Worker
+                       │
+                       ▼
+                 Object Storage
+```
+
+Run:
+
+```bash
+cp .env.example .env
+# Configure secrets in .env
+docker compose up --build
+```
+
+For cloud deployment, the same application is designed to use managed PostgreSQL, Redis, S3-compatible object storage, centralized observability, TLS termination, and platform-managed secrets.
+
+---
+
+## Repository Structure
+
+```text
+.
+├── architecture/                 # system design and data contracts
 ├── data/
-│   ├── schemas/
-│   └── synthetic/
-├── reports/
-├── src/
-│   └── reconciliation_platform/
-│       ├── anomaly/
-│       ├── decisioning/
-│       ├── ingestion/
-│       ├── models/
-│       ├── normalization/
-│       ├── reconciliation/
-│       └── validation/
+│   ├── schemas/                  # source/canonical schemas
+│   └── synthetic/                # reproducible benchmark data
+├── reports/                      # engineering reports and evaluation
+├── src/reconciliation_platform/
+│   ├── ai/                       # provider abstraction + OpenAI adapter
+│   ├── anomaly/                  # anomaly detection
+│   ├── api/                      # FastAPI boundary
+│   ├── decisioning/              # review/decision contracts
+│   ├── ingestion/                # ingestion + upload handling
+│   ├── models/                   # canonical domain model
+│   ├── normalization/            # source → canonical mapping
+│   ├── reconciliation/           # matching engine
+│   ├── storage/                  # SQLite/PostgreSQL/object storage
+│   ├── validation/               # schema/business validation
+│   ├── observability.py          # logs, metrics, audit
+│   ├── rate_limit.py             # tenant throttling
+│   └── worker.py                 # Celery entrypoint
 ├── tests/
 │   ├── integration/
 │   └── unit/
-├── pyproject.toml
-└── .github/workflows/
+├── .github/workflows/
+│   ├── ci.yml
+│   └── security.yml
+├── Dockerfile
+├── docker-compose.yml
+└── pyproject.toml
 ```
 
-## Engineering principles
+---
 
-### AI is not the source of truth
-Strong deterministic evidence is evaluated first. Ambiguous cases are represented explicitly for review.
+## Engineering Quality Gates
 
-### Every decision is traceable
-Decisions retain source IDs, candidate IDs, matching tier, signals, confidence, explanation, and pipeline metadata.
-
-### Idempotency is designed in
-Raw file fingerprints, batch IDs, and canonical record hashes make retries and duplicate processing detectable.
-
-### Synthetic data only
-No customer financial data, credentials, secrets, or PII should be committed.
-
-## Report
-
-See [reports/phase1_mvp_report.md](reports/phase1_mvp_report.md) for the current implementation report, benchmark expectations, engineering decisions, and limitations.
-
-
-## AI reviewer
-
-The deterministic reconciliation engine remains authoritative. When `AI_PROVIDER=openai`, only records already classified as `REVIEW` are sent to the OpenAI Responses API. The adapter requests a strict structured response containing a recommendation, confidence, and rationale; the API returns this as review evidence and does not convert the AI recommendation into an automatic match. The default `AI_PROVIDER=none` keeps the system fully deterministic and offline.
-
-OpenAI API credentials must be supplied through the runtime environment and are never committed to the repository. See `.env.example` for configuration names.
-
-## API security
-
-The reconciliation and storage endpoints require `X-API-Key` by default. Set `API_KEY_REQUIRED=false` only for local development/testing. The API also restricts reconciliation input paths to the repository's `data/` root, reducing the risk of arbitrary local filesystem access.
-
-
-## Production deployment
-
-The repository includes a production-oriented container path.
-
-Run locally with Docker Compose:
-
-    cp .env.example .env
-    # Set RECONCILIATION_API_KEY in .env
-    docker compose up --build
-
-The API container uses PostgreSQL by default through DATABASE_URL. SQLite remains available as a local fallback when DATABASE_URL is unset.
-
-Endpoints:
-- GET /health — liveness check; no authentication required.
-- GET /ready — readiness check; verifies storage connectivity.
-- POST /reconcile — authenticated reconciliation execution.
-- GET /storage/health — authenticated persistence check.
-
-### Secrets
-
-Keep RECONCILIATION_API_KEY and OPENAI_API_KEY outside source control. The reconciliation API key is intentionally separate from the OpenAI credential. In a real deployment, inject both from the platform's secret manager rather than committing a .env file.
-
-### Production limitations
-
-The current API still accepts a repository-local data_dir. The container path is therefore deployment-ready for a controlled internal workload, but a multi-tenant production service should replace this with authenticated file uploads/object storage and tenant-scoped authorization. TLS termination, rate limiting, distributed tracing, and metrics are also deployment-layer concerns.
-
-
-## Tenant-aware file ingestion
-
-Production-facing ingestion is available at `POST /v1/reconcile`.
-
-Send:
-- `X-API-Key` for API authentication when enabled.
-- `X-Tenant-ID` for tenant isolation.
-- `bank_file` as a CSV upload.
-- `purchase_file` as a CSV upload.
-
-Uploaded files are stored under a tenant-scoped object key such as `tenants/acme_01/raw/bank/...`. The configured object-store backend can be local filesystem storage for development or Amazon S3 for production. The reconciliation engine processes a temporary materialized copy, so clients never provide a server filesystem path.
-
-Each uploaded file is limited to 10 MiB and only CSV files are accepted.
-
-Tenant IDs are restricted to safe alphanumeric, underscore, and hyphen identifiers. Review-case persistence is tenant-scoped, preventing identical source record IDs in separate tenants from sharing a review namespace.
-
-Example:
-
-    curl -X POST http://localhost:8000/v1/reconcile \
-      -H "X-API-Key: $RECONCILIATION_API_KEY" \
-      -H "X-Tenant-ID: acme_01" \
-      -F "bank_file=@data/synthetic/seed/bank_transactions.csv" \
-      -F "purchase_file=@data/synthetic/seed/purchase_invoices.csv"
-
-For production S3, set `OBJECT_STORE=s3`, `S3_BUCKET`, and AWS credentials through the deployment platform's secret/identity mechanism.
-
-
-### Tenant authorization
-
-For multi-tenant deployments, set `TENANT_API_KEYS` as a comma-separated mapping of tenant IDs to unique API keys:
+Every change is expected to pass:
 
 ```text
-TENANT_API_KEYS=acme_01:replace-with-secret-a,other_01:replace-with-secret-b
+Lint
+  ↓
+Unit + Integration Tests
+  ↓
+Coverage Gate
+  ↓
+Dependency Security Audit
+  ↓
+Docker Production Build
+  ↓
+Docker Compose Validation
 ```
 
-The `/v1/reconcile` endpoint requires `X-Tenant-ID` and, when this mapping is configured, verifies that the supplied `X-API-Key` is authorized for that tenant. A valid key for one tenant cannot be used to access another tenant.
+The repository's production-hardening work has been merged to `main`, including distributed workers, tenant rate limiting, auditability, observability, security checks, and container validation.
 
-Do not commit real API keys. Store production credentials in the deployment secret manager.
+---
 
+## API Surface
 
-### Asynchronous reconciliation
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Liveness |
+| `GET /ready` | Dependency readiness |
+| `POST /v1/reconcile` | Synchronous tenant-scoped reconciliation |
+| `POST /v1/reconcile/async` | Queue reconciliation job |
+| `GET /v1/reconcile/jobs/{job_id}` | Poll job status/result |
+| `GET /v1/audit` | Tenant-scoped audit events |
+| `GET /metrics` | Operational metrics |
 
-For production-style non-blocking processing, use `POST /v1/reconcile/async`. The API stores uploaded files in object storage, creates a tenant-scoped persistent job record, returns HTTP 202 with a `job_id`, and processes the reconciliation in a background worker task.
+---
 
-Poll `GET /v1/reconcile/jobs/{job_id}` with the same tenant credentials. Jobs transition through `queued`, `running`, `succeeded`, or `failed`. Job results and errors are persisted in the configured SQLite/PostgreSQL backend.
+## Local Development
 
-This background-task implementation is intentionally lightweight for the portfolio MVP. A distributed queue such as Celery/RQ/SQS + worker deployment is the next scaling step for high-volume workloads.
+```bash
+python -m pip install -e ".[dev]"
 
+# deterministic benchmark
+reconcile-demo --data-dir data/synthetic/seed
 
-## Production hardening
+# tests
+python -m pytest -q
 
-The production path now supports a distributed worker mode in addition to the lightweight background-task mode.
+# lint
+ruff check .
 
-Set:
-- `JOB_QUEUE=celery`
-- `REDIS_URL=redis://redis:6379/0`
+# production topology
+docker compose up --build
+```
 
-Docker Compose starts PostgreSQL, Redis, the API, and a Celery worker. Celery is configured for late acknowledgements, one-task prefetching, task-start tracking, and bounded task execution time. A worker crash can therefore leave a task eligible for redelivery rather than silently losing it.
+---
 
-### Rate limiting
+## Engineering Decisions
 
-Tenant-scoped request throttling is enabled for the upload/reconciliation endpoints. Configure `RATE_LIMIT_PER_MINUTE`. The current implementation is an in-process limiter and is appropriate for a single API instance. For horizontally scaled API replicas, rate limiting should be moved to a shared Redis-backed atomic counter before exposing multiple replicas.
+| Decision | Rationale |
+|---|---|
+| Deterministic reconciliation before AI | Financial decisions need reproducible evidence |
+| Canonical transaction model | Decouple source formats from business logic |
+| Immutable/raw object boundary | Preserve replayability and lineage |
+| PostgreSQL for durable state | Transactional job/review persistence |
+| Redis + Celery | Decouple API latency from reconciliation workload |
+| Tenant-scoped namespaces | Prevent cross-tenant data leakage |
+| Structured audit events | Make decisions explainable and operationally traceable |
+| Provider-neutral AI interface | Avoid coupling business logic to one model provider |
+| Synthetic benchmark | Reproducible engineering validation without customer data |
 
-### Request tracing and security headers
+---
 
-Every HTTP response receives an `X-Request-ID` (preserving a caller-supplied value when present), plus baseline security headers. Structured request logs include request ID, route, status, and latency.
+## Engineering Documentation
 
-### Auditability and metrics
+- [System Architecture](architecture/architecture.md)
+- [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
+- [Environment Configuration](.env.example)
 
-- `GET /metrics` exposes application counters.
-- `GET /v1/audit` returns tenant-scoped audit events.
-- Async job completion/failure and status reads are recorded.
-- Reconciliation completion records include the benchmark summary and AI review metadata.
+---
 
-The local JSONL audit file is an MVP durability layer. A cloud deployment should route audit events to durable centralized storage with retention controls.
+## Project Status
 
-### Deployment boundary
+**Engineering status: production-oriented codebase complete.**
 
-The repository is production-oriented and containerized, but a truly production deployment still requires environment-specific infrastructure outside GitHub: TLS termination/managed ingress, managed PostgreSQL/Redis, cloud object storage, centralized logs/metrics/traces, secret management, backups, alerting, and identity/access policies. Those external systems cannot be truthfully marked as live-verified from this repository alone.
+The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support.
+
+A live public deployment is intentionally a separate infrastructure step and requires environment-specific services such as managed PostgreSQL/Redis, object storage, TLS, secrets management, centralized monitoring, backups, and alerting.
+
+---
+
+## License
+
+This project is an engineering portfolio implementation using synthetic financial data.
