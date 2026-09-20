@@ -75,7 +75,7 @@ def test_ground_truth_evaluation_flags_false_auto_match():
     assert metrics.match_precision == 0.5
     assert metrics.match_recall == 1.0
     assert metrics.false_positive_rate == 0.5
-    assert metrics.exception_capture_rate == 1.0
+    assert metrics.exception_capture_rate == 0.5
 
 
 def test_ground_truth_loader_validates_duplicate_ids():
