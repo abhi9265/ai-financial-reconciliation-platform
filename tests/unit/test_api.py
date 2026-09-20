@@ -131,3 +131,32 @@ def test_async_reconciliation_job(monkeypatch, tmp_path):
     assert status.status_code == 200
     assert status.json()["status"] == "succeeded"
     assert status.json()["result"]["matched"] == 90
+
+
+
+def test_metrics_endpoint():
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "reconciliation_runs_total" in response.json()
+
+
+def test_tenant_audit_endpoint(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("AUDIT_LOG_PATH", str(tmp_path / "audit.jsonl"))
+    from reconciliation_platform.audit import record_audit_event
+
+    record_audit_event("test.event", tenant_id="audit_01", detail="ok")
+    response = client.get("/v1/audit", headers={"X-Tenant-ID": "audit_01"})
+    assert response.status_code == 200
+    assert response.json()["events"][0]["event_type"] == "test.event"
+
+
+def test_audit_is_tenant_scoped(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("AUDIT_LOG_PATH", str(tmp_path / "audit.jsonl"))
+    from reconciliation_platform.audit import record_audit_event
+
+    record_audit_event("test.event", tenant_id="tenant_a")
+    record_audit_event("test.event", tenant_id="tenant_b")
+    response = client.get("/v1/audit", headers={"X-Tenant-ID": "tenant_a"})
+    assert [event["tenant_id"] for event in response.json()["events"]] == ["tenant_a"]
