@@ -20,8 +20,8 @@
 | Anomaly classification | Complete |
 | Human-review case contract | Complete |
 | AI escalation interface | Complete, provider-neutral |
-| Evaluation metrics | Complete |
-| CLI | Complete |
+| Evaluation metrics | Complete, including ground-truth precision/recall and exception capture |
+| CLI | Complete |\n| API boundary | Complete for MVP: FastAPI health/reconcile endpoints |\n| Persistent idempotency | Complete for MVP via SQLite batch/record keys |\n| Review-case persistence | Complete for MVP via SQLite |\n| Structured observability | Complete for MVP via JSON events/timing |
 | Unit/integration tests | Added |
 | GitHub Actions CI | Configured |
 | Persistent database/object storage | Not implemented |
@@ -72,7 +72,7 @@ python -m pytest -q
 ruff check .
 ```
 
-## Evidence limitations
+## Production-readiness foundation\n\nStep 5 adds a persistence and service boundary without changing the evidence-first reconciliation contract. SQLite stores batch identities, record-level idempotency keys, and review cases. FastAPI exposes health and reconciliation endpoints. Structured JSON logging records lifecycle events and duration. The default deployment remains intentionally local/MVP-oriented; production would move persistence to a managed database/object store and add authentication, authorization, secrets management, metrics/traces, and deployment infrastructure.\n\n## Evidence limitations
 
 GitHub repository contents were inspected after implementation. Local execution was not available in this session because the runtime could not reach GitHub to download the repository, and the GitHub commit status endpoint currently reports no status entries for the latest documentation commit. Therefore test/CI success is **not claimed** here until GitHub Actions produces a completed run.
 
