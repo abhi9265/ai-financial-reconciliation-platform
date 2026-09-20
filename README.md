@@ -2,59 +2,78 @@
 
 An engineering-focused financial reconciliation platform for Indian SMEs and CA firms.
 
-The system is designed to reconcile inconsistent financial records across bank statements, invoices, purchase/sales registers, accounting exports, and GST data. It combines deterministic matching, fuzzy matching, AI-assisted review, anomaly detection, explainable decisions, and human-in-the-loop approval.
+The system converts heterogeneous financial records into a common transaction model, applies evidence-first reconciliation, identifies exceptions, and creates traceable review cases. AI is intentionally positioned as an escalation layer rather than the foundation.
 
-> **Engineering principle:** AI is an escalation layer for ambiguous cases, not the foundation of the reconciliation process.
+## Current MVP
 
-## Core workflow
+The repository now contains an executable synthetic-data MVP covering:
 
-```
-Upload
-  ↓
-Ingest
-  ↓
-Validate
-  ↓
-Normalize
-  ↓
-Reconcile
-  ↓
-Detect Anomalies
-  ↓
-AI Review
-  ↓
-Human Approval
-  ↓
-Reports + Feedback
-```
-
-## Project status
-
-**Phase 1 — Financial Data Foundation**
-
-Current focus:
-- canonical financial transaction schema
 - source-specific ingestion contracts
-- validation and data-quality rules
-- normalization into a unified model
-- ingestion metadata and lineage
-- idempotent batch processing
-- Bronze → Silver foundation
-- automated tests and CI
+- SHA-256 file fingerprinting and deterministic batch identity
+- source-to-canonical normalization
+- lineage and record hashing
+- business/data-quality validation
+- deterministic reconciliation with conservative fuzzy fallback
+- anomaly classification
+- human-review case generation
+- automated unit + integration tests
+- GitHub Actions CI
+- CLI execution
 
-Planned later:
-- deterministic reconciliation
-- fuzzy matching
-- AI-assisted ambiguity resolution
-- anomaly detection
-- human review workflow
-- evaluation and benchmarking
-- API and operational interfaces
-- deployment and production hardening
+## Workflow
+
+```
+Source Files
+    ↓
+Ingest + Contract Validation
+    ↓
+Batch Identity / Fingerprint
+    ↓
+Normalize
+    ↓
+Canonical Transactions
+    ↓
+Reconciliation
+    ├── Deterministic
+    ├── Fuzzy
+    └── Review
+    ↓
+Anomaly Detection
+    ↓
+Human Review Cases
+    ↓
+Evaluation / Reporting
+```
+
+## Synthetic benchmark
+
+The current seed contains 100 bank transactions and 95 purchase invoices. The integration benchmark expects:
+
+| Outcome | Count |
+| --- | ---: |
+| Auto matched | 90 |
+| Review: referenced invoice amount mismatch | 5 |
+| Unmatched: invoice absent | 5 |
+
+The benchmark is deliberately synthetic and reproducible. It is not a production accuracy claim.
+
+## Run locally
+
+```bash
+python -m pip install -e ".[dev]"
+reconcile-demo --data-dir data/synthetic/seed
+```
+
+Or:
+
+```bash
+python -m pytest -q
+ruff check .
+```
 
 ## Architecture
 
-See [architecture/architecture.md](architecture/architecture.md) for the current system design and implementation boundaries.
+See [architecture/architecture.md](architecture/architecture.md) for the system design and evidence boundaries.
 
 ## Repository structure
 
@@ -64,23 +83,37 @@ ai-financial-reconciliation-platform/
 ├── data/
 │   ├── schemas/
 │   └── synthetic/
+├── reports/
 ├── src/
 │   └── reconciliation_platform/
+│       ├── anomaly/
+│       ├── decisioning/
 │       ├── ingestion/
-│       ├── validation/
-│       └── normalization/
+│       ├── models/
+│       ├── normalization/
+│       ├── reconciliation/
+│       └── validation/
 ├── tests/
-│   ├── unit/
-│   └── integration/
+│   ├── integration/
+│   └── unit/
 ├── pyproject.toml
-└── .github/
-    └── workflows/
+└── .github/workflows/
 ```
 
-## Data handling
+## Engineering principles
 
-This repository uses synthetic and non-sensitive sample data for development and evaluation. Real customer financial records, credentials, secrets, and personally identifiable information must not be committed.
+### AI is not the source of truth
+Strong deterministic evidence is evaluated first. Ambiguous cases are represented explicitly for review.
 
-## Evidence policy
+### Every decision is traceable
+Decisions retain source IDs, candidate IDs, matching tier, signals, confidence, explanation, and pipeline metadata.
 
-Implemented behavior will be documented separately from future plans. Production/runtime claims will only be made when supported by reproducible evidence.
+### Idempotency is designed in
+Raw file fingerprints, batch IDs, and canonical record hashes make retries and duplicate processing detectable.
+
+### Synthetic data only
+No customer financial data, credentials, secrets, or PII should be committed.
+
+## Report
+
+See [reports/phase1_mvp_report.md](reports/phase1_mvp_report.md) for the current implementation report, benchmark expectations, engineering decisions, and limitations.
