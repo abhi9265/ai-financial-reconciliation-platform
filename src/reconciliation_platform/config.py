@@ -15,6 +15,10 @@ class Settings:
     ai_model: str
     ai_timeout_seconds: float
     api_key_required: bool
+    object_store: str
+    object_store_path: str
+    s3_bucket: str | None
+    s3_prefix: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -28,4 +32,8 @@ class Settings:
             ai_model=os.getenv("AI_MODEL", "gpt-5.6-luna"),
             ai_timeout_seconds=float(os.getenv("AI_TIMEOUT_SECONDS", "20")),
             api_key_required=os.getenv("API_KEY_REQUIRED", "true").strip().lower() == "true",
+            object_store=os.getenv("OBJECT_STORE", "local").strip().lower(),
+            object_store_path=os.getenv("OBJECT_STORE_PATH", "data/objects"),
+            s3_bucket=os.getenv("S3_BUCKET") or None,
+            s3_prefix=os.getenv("S3_PREFIX", "reconciliation"),
         )
