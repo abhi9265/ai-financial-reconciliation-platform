@@ -8,6 +8,8 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Settings:
     api_key: str | None
+    openai_api_key: str | None
+    database_url: str | None
     database_path: str
     ai_provider: str
     ai_model: str
@@ -19,6 +21,8 @@ class Settings:
         provider = os.getenv("AI_PROVIDER", "none").strip().lower()
         return cls(
             api_key=os.getenv("RECONCILIATION_API_KEY"),
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            database_url=os.getenv("DATABASE_URL") or None,
             database_path=os.getenv("RECONCILIATION_DB", "data/reconciliation.db"),
             ai_provider=provider,
             ai_model=os.getenv("AI_MODEL", "gpt-5.6-luna"),
