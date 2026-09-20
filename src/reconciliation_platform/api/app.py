@@ -37,9 +37,8 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
 
 
-def resolve_data_dir(data_dir: str, settings: Settings) -> Path:
+def resolve_data_dir(data_dir: str) -> Path:
     requested = Path(data_dir).resolve()
-    allowed_root = Path(settings.database_path).resolve().parent
     configured_root = Path("data").resolve()
     if not requested.is_dir() or (
         configured_root not in requested.parents and requested != configured_root
@@ -71,7 +70,7 @@ def reconcile(
     _: None = Depends(require_api_key),
 ) -> dict:
     settings = Settings.from_env()
-    root = resolve_data_dir(request.data_dir, settings)
+    root = resolve_data_dir(request.data_dir)
 
     log_event("reconciliation_started", data_dir=str(root))
     result = run_pipeline(root)
