@@ -1,10 +1,22 @@
-"""Deterministic and fuzzy reconciliation engine."""
+"""Deterministic and configurable reconciliation engine."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from difflib import SequenceMatcher
+
 from reconciliation_platform.models.canonical_transaction import CanonicalTransaction
+
+
+@dataclass(frozen=True)
+class ReconciliationConfig:
+    date_tolerance_days: int = 3
+    near_amount_tolerance: Decimal = Decimal("1.00")
+    fuzzy_review_threshold: float = 0.70
+    fuzzy_auto_match_threshold: float = 0.82
+    counterparty_similarity_threshold: float = 0.90
+
 
 @dataclass(frozen=True)
 class MatchCandidate:
@@ -14,6 +26,7 @@ class MatchCandidate:
     signals: tuple[str, ...]
     amount_difference: Decimal
     date_difference_days: int
+
 
 @dataclass(frozen=True)
 class ReconciliationDecision:
@@ -27,15 +40,18 @@ class ReconciliationDecision:
     amount_difference: Decimal | None = None
     date_difference_days: int | None = None
 
+
 def _days(a: date, b: date) -> int:
     return abs((a - b).days)
+
 
 def _name_similarity(a: str | None, b: str | None) -> float:
     if not a or not b:
         return 0.0
     return SequenceMatcher(None, a.lower().replace(" ", ""), b.lower().replace(" ", "")).ratio()
 
-def _candidate(bank: CanonicalTransaction, invoice: CanonicalTransaction) -> MatchCandidate:
+
+def _candidate(bank: CanonicalTransaction, invoice: CanonicalTransaction, config: ReconciliationConfig) -> MatchCandidate:
     amount_diff = abs(bank.amount - invoice.amount)
     date_diff = _days(bank.transaction_date, invoice.transaction_date)
     signals: list[str] = []
@@ -46,46 +62,93 @@ def _candidate(bank: CanonicalTransaction, invoice: CanonicalTransaction) -> Mat
     if amount_diff == 0:
         signals.append("exact_amount")
         score += 0.30
-    elif amount_diff <= Decimal("1.00"):
+    elif amount_diff <= config.near_amount_tolerance:
         signals.append("near_amount")
         score += 0.20
     if date_diff == 0:
         signals.append("exact_date")
         score += 0.10
-    elif date_diff <= 3:
-        signals.append("date_within_3_days")
+    elif date_diff <= config.date_tolerance_days:
+        signals.append(f"date_within_{config.date_tolerance_days}_days")
         score += 0.07
-    name_score = _name_similarity(bank.counterparty_name, invoice.counterparty_name)
-    if name_score >= 0.90:
+    if _name_similarity(bank.counterparty_name, invoice.counterparty_name) >= config.counterparty_similarity_threshold:
         signals.append("counterparty_similarity")
         score += 0.05
-    return MatchCandidate(bank.source_record_id, invoice.source_record_id, min(score, 1.0), tuple(signals), amount_diff, date_diff)
+    return MatchCandidate(
+        bank.source_record_id,
+        invoice.source_record_id,
+        min(score, 1.0),
+        tuple(signals),
+        amount_diff,
+        date_diff,
+    )
 
-def reconcile(bank_transactions: list[CanonicalTransaction], invoice_transactions: list[CanonicalTransaction], *, date_tolerance_days: int = 3) -> list[ReconciliationDecision]:
+
+def reconcile(
+    bank_transactions: list[CanonicalTransaction],
+    invoice_transactions: list[CanonicalTransaction],
+    *,
+    config: ReconciliationConfig | None = None,
+) -> list[ReconciliationDecision]:
+    config = config or ReconciliationConfig()
     decisions: list[ReconciliationDecision] = []
     used: set[str] = set()
+
     for bank in bank_transactions:
-        candidates = [_candidate(bank, inv) for inv in invoice_transactions if inv.source_record_id not in used]
+        candidates = [
+            _candidate(bank, inv, config)
+            for inv in invoice_transactions
+            if inv.source_record_id not in used
+        ]
         candidates.sort(key=lambda c: (c.score, -float(c.amount_difference), -c.date_difference_days), reverse=True)
-        exact = [c for c in candidates if "exact_reference" in c.signals and "exact_amount" in c.signals and c.date_difference_days <= date_tolerance_days]
+
+        exact = [
+            c for c in candidates
+            if "exact_reference" in c.signals
+            and "exact_amount" in c.signals
+            and c.date_difference_days <= config.date_tolerance_days
+        ]
         if exact:
             c = exact[0]
             used.add(c.counterparty_record_id)
-            decisions.append(ReconciliationDecision(bank.source_record_id, c.counterparty_record_id, "MATCHED", "DETERMINISTIC", 1.0, "Reference and amount agree; transaction date is within tolerance.", c.signals, c.amount_difference, c.date_difference_days))
+            decisions.append(ReconciliationDecision(
+                bank.source_record_id, c.counterparty_record_id, "MATCHED", "DETERMINISTIC",
+                1.0, "Reference and amount agree; transaction date is within tolerance.",
+                c.signals, c.amount_difference, c.date_difference_days,
+            ))
             continue
+
         strong_ref = [c for c in candidates if "exact_reference" in c.signals]
         if strong_ref:
             c = strong_ref[0]
-            decisions.append(ReconciliationDecision(bank.source_record_id, c.counterparty_record_id, "REVIEW", "DETERMINISTIC_EXCEPTION", c.score, "Reference identifies a candidate, but amount/date evidence does not satisfy the exact-match contract.", c.signals, c.amount_difference, c.date_difference_days))
+            decisions.append(ReconciliationDecision(
+                bank.source_record_id, c.counterparty_record_id, "REVIEW", "DETERMINISTIC_EXCEPTION",
+                c.score, "Reference identifies a candidate, but amount/date evidence does not satisfy the exact-match contract.",
+                c.signals, c.amount_difference, c.date_difference_days,
+            ))
             continue
-        fuzzy = [c for c in candidates if c.score >= 0.70 and c.date_difference_days <= date_tolerance_days and c.amount_difference <= Decimal("1.00")]
+
+        fuzzy = [
+            c for c in candidates
+            if c.score >= config.fuzzy_review_threshold
+            and c.date_difference_days <= config.date_tolerance_days
+            and c.amount_difference <= config.near_amount_tolerance
+        ]
         if fuzzy:
             c = fuzzy[0]
-            if c.score >= 0.82:
+            if c.score >= config.fuzzy_auto_match_threshold:
                 used.add(c.counterparty_record_id)
-                decisions.append(ReconciliationDecision(bank.source_record_id, c.counterparty_record_id, "MATCHED", "FUZZY", c.score, "Multiple independent signals support the candidate.", c.signals, c.amount_difference, c.date_difference_days))
+                status, tier, explanation = "MATCHED", "FUZZY", "Multiple independent signals support the candidate."
             else:
-                decisions.append(ReconciliationDecision(bank.source_record_id, c.counterparty_record_id, "REVIEW", "FUZZY", c.score, "Candidate is plausible but below the configured auto-match confidence.", c.signals, c.amount_difference, c.date_difference_days))
+                status, tier, explanation = "REVIEW", "FUZZY", "Candidate is plausible but below the configured auto-match confidence."
+            decisions.append(ReconciliationDecision(
+                bank.source_record_id, c.counterparty_record_id, status, tier, c.score,
+                explanation, c.signals, c.amount_difference, c.date_difference_days,
+            ))
             continue
-        decisions.append(ReconciliationDecision(bank.source_record_id, None, "UNMATCHED", "NONE", 0.0, "No eligible counterparty record satisfied the matching rules.", tuple()))
+
+        decisions.append(ReconciliationDecision(
+            bank.source_record_id, None, "UNMATCHED", "NONE", 0.0,
+            "No eligible counterparty record satisfied the matching rules.", tuple(),
+        ))
     return decisions
