@@ -4,7 +4,6 @@ from __future__ import annotations
 import time
 from collections import defaultdict, deque
 from threading import Lock
-from uuid import uuid4
 
 from redis import Redis
 
