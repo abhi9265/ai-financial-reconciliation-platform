@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Iterable
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 from reconciliation_platform.decisioning.review import ReviewCase
 from reconciliation_platform.ingestion.batch import compute_idempotency_key
@@ -199,6 +200,6 @@ class PostgresStore:
             connection.execute(
                 "UPDATE reconciliation_jobs SET status = %s, result = %s, error = %s "
                 "WHERE job_id = %s AND tenant_id = %s",
-                (status, result, error, job_id, tenant_id),
+                (status, Jsonb(result) if result is not None else None, error, job_id, tenant_id),
             )
             connection.commit()
