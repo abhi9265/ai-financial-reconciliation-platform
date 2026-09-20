@@ -51,6 +51,14 @@ def _name_similarity(a: str | None, b: str | None) -> float:
     return SequenceMatcher(None, a.lower().replace(" ", ""), b.lower().replace(" ", "")).ratio()
 
 
+def _compatible_types(bank: CanonicalTransaction, invoice: CanonicalTransaction) -> bool:
+    return (
+        (bank.transaction_type.value == "PAYMENT" and invoice.transaction_type.value == "PURCHASE")
+        or (bank.transaction_type.value == "RECEIPT" and invoice.transaction_type.value == "SALE")
+        or bank.transaction_type.value == invoice.transaction_type.value
+    )
+
+
 def _candidate(bank: CanonicalTransaction, invoice: CanonicalTransaction, config: ReconciliationConfig) -> MatchCandidate:
     amount_diff = abs(bank.amount - invoice.amount)
     date_diff = _days(bank.transaction_date, invoice.transaction_date)
@@ -73,6 +81,9 @@ def _candidate(bank: CanonicalTransaction, invoice: CanonicalTransaction, config
         score += 0.07
     if _name_similarity(bank.counterparty_name, invoice.counterparty_name) >= config.counterparty_similarity_threshold:
         signals.append("counterparty_similarity")
+        score += 0.05
+    if _compatible_types(bank, invoice):
+        signals.append("compatible_transaction_type")
         score += 0.05
     return MatchCandidate(
         bank.source_record_id,
@@ -109,7 +120,23 @@ def reconcile(
             and c.date_difference_days <= config.date_tolerance_days
         ]
         if exact:
-            c = exact[0]
+            best = exact[0]
+            tied = [
+                c for c in exact
+                if c.score == best.score
+                and c.amount_difference == best.amount_difference
+                and c.date_difference_days == best.date_difference_days
+            ]
+            if len(tied) > 1:
+                decisions.append(ReconciliationDecision(
+                    bank.source_record_id, None, "REVIEW", "AMBIGUOUS_DETERMINISTIC",
+                    best.score,
+                    "Multiple invoice candidates satisfy the strongest deterministic evidence.",
+                    tuple(sorted(set(best.signals + ("ambiguous_candidate_set",)))),
+                    best.amount_difference, best.date_difference_days,
+                ))
+                continue
+            c = best
             used.add(c.counterparty_record_id)
             decisions.append(ReconciliationDecision(
                 bank.source_record_id, c.counterparty_record_id, "MATCHED", "DETERMINISTIC",
