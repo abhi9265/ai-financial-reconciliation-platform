@@ -166,7 +166,7 @@ async def reconcile_uploaded_files(
     return summary
 
 
-def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase_key: str) -> None:
+def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase_key: str, *, raise_on_error: bool = False) -> None:
     settings = Settings.from_env()
     store = build_store(settings)
     store.update_job(job_id, tenant_id=tenant_id, status="running")
@@ -221,6 +221,8 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
         )
         store.update_job(job_id, tenant_id=tenant_id, status="failed", error=str(exc))
         log_event("reconciliation_job_failed", job_id=job_id, tenant_id=tenant_id, error=str(exc))
+        if raise_on_error:
+            raise
 
 
 @app.post("/v1/reconcile/async", status_code=202)
