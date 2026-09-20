@@ -52,7 +52,7 @@ class SQLiteStore:
                     created_at TEXT NOT NULL
                 );
 
-                CREATE TABLE IF NOT EXISTS review_cases (
+                CREATE TABLE IF NOT EXISTS review_cases (\n                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     case_id TEXT PRIMARY KEY,
                     record_id TEXT NOT NULL,
                     candidate_record_id TEXT,
@@ -62,6 +62,11 @@ class SQLiteStore:
                 );
                 """
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(review_cases)")}
+            if "tenant_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE review_cases ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'"
+                )
 
     def register_batch(
         self,
@@ -120,18 +125,19 @@ class SQLiteStore:
                     duplicates += 1
         return inserted, duplicates
 
-    def save_review_cases(self, cases: Iterable[ReviewCase]) -> int:
+    def save_review_cases(self, cases: Iterable[ReviewCase], *, tenant_id: str = "default") -> int:
         inserted = 0
         with self._connect() as connection:
             for case in cases:
                 cursor = connection.execute(
                     """
                     INSERT OR IGNORE INTO review_cases
-                    (case_id, record_id, candidate_record_id, reason, confidence, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (case_id, tenant_id, record_id, candidate_record_id, reason, confidence, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        case.case_id,
+                        f"{tenant_id}:{case.case_id}",
+                        tenant_id,
                         case.record_id,
                         case.candidate_record_id,
                         case.reason,
@@ -142,6 +148,8 @@ class SQLiteStore:
                 inserted += cursor.rowcount
         return inserted
 
-    def review_case_count(self) -> int:
+    def review_case_count(self, *, tenant_id: str | None = None) -> int:
         with self._connect() as connection:
-            return int(connection.execute("SELECT COUNT(*) FROM review_cases").fetchone()[0])
+            if tenant_id is None:
+                return int(connection.execute("SELECT COUNT(*) FROM review_cases").fetchone()[0])
+            return int(connection.execute("SELECT COUNT(*) FROM review_cases WHERE tenant_id = ?", (tenant_id,)).fetchone()[0])

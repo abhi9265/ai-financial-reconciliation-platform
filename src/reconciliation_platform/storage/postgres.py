@@ -44,6 +44,7 @@ class PostgresStore:
 
                 CREATE TABLE IF NOT EXISTS review_cases (
                     case_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     record_id TEXT NOT NULL,
                     candidate_record_id TEXT,
                     reason TEXT NOT NULL,
@@ -52,6 +53,16 @@ class PostgresStore:
                 );
                 """
             )
+            columns = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'review_cases'"
+                ).fetchall()
+            }
+            if "tenant_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE review_cases ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'"
+                )
             connection.commit()
 
     def register_batch(
@@ -113,19 +124,20 @@ class PostgresStore:
             connection.commit()
         return inserted, duplicates
 
-    def save_review_cases(self, cases: Iterable[ReviewCase]) -> int:
+    def save_review_cases(self, cases: Iterable[ReviewCase], *, tenant_id: str = "default") -> int:
         inserted = 0
         with self._connect() as connection:
             for case in cases:
                 cursor = connection.execute(
                     """
                     INSERT INTO review_cases
-                    (case_id, record_id, candidate_record_id, reason, confidence, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    (case_id, tenant_id, record_id, candidate_record_id, reason, confidence, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     """,
                     (
-                        case.case_id,
+                        f"{tenant_id}:{case.case_id}",
+                        tenant_id,
                         case.record_id,
                         case.candidate_record_id,
                         case.reason,
@@ -137,6 +149,13 @@ class PostgresStore:
             connection.commit()
         return inserted
 
-    def review_case_count(self) -> int:
+    def review_case_count(self, *, tenant_id: str | None = None) -> int:
         with self._connect() as connection:
-            return int(connection.execute("SELECT COUNT(*) FROM review_cases").fetchone()[0])
+            if tenant_id is None:
+                return int(connection.execute("SELECT COUNT(*) FROM review_cases").fetchone()[0])
+            return int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM review_cases WHERE tenant_id = %s",
+                    (tenant_id,),
+                ).fetchone()[0]
+            )
