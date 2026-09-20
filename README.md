@@ -16,7 +16,7 @@ The repository now contains an executable synthetic-data MVP covering:
 - deterministic reconciliation with conservative fuzzy fallback
 - anomaly classification
 - human-review case generation
-- automated unit + integration tests
+- automated unit + integration tests\n- FastAPI API boundary with health and reconciliation endpoints\n- SQLite persistence for batch registration, record-level idempotency, and review cases\n- structured JSON logging with timing instrumentation\n- ground-truth evaluation with precision/recall/exception-capture metrics
 - GitHub Actions CI
 - CLI execution
 
