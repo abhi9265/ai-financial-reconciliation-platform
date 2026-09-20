@@ -16,6 +16,8 @@ from reconciliation_platform.config import Settings
 from reconciliation_platform.decisioning.review import build_review_cases
 from reconciliation_platform.evaluation.metrics import evaluate_against_ground_truth, load_ground_truth
 from reconciliation_platform.observability import configure_logging, log_event
+from reconciliation_platform.audit import read_audit_events, record_audit_event
+from reconciliation_platform.metrics import record_reconciliation, snapshot
 from reconciliation_platform.pipeline import run_pipeline, summarize
 from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
@@ -128,6 +130,8 @@ async def reconcile_uploaded_files(
         )
     summary["tenant_id"] = tenant_id
     summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
+    record_reconciliation(summary)
+    record_audit_event("reconciliation.completed", tenant_id=tenant_id, mode="sync", summary=summary)
     log_event("tenant_reconciliation_completed", **summary)
     return summary
 
@@ -164,9 +168,27 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             )
             summary["tenant_id"] = tenant_id
             summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
+        record_reconciliation(summary)
+        record_audit_event(
+            "reconciliation.job.completed",
+            tenant_id=tenant_id,
+            job_id=job_id,
+            mode="async",
+            status="succeeded",
+            summary=summary,
+        )
         store.update_job(job_id, tenant_id=tenant_id, status="succeeded", result=summary)
         log_event("reconciliation_job_completed", job_id=job_id, tenant_id=tenant_id)
     except Exception as exc:
+        record_reconciliation({}, failed=True)
+        record_audit_event(
+            "reconciliation.job.failed",
+            tenant_id=tenant_id,
+            job_id=job_id,
+            mode="async",
+            status="failed",
+            error=str(exc),
+        )
         store.update_job(job_id, tenant_id=tenant_id, status="failed", error=str(exc))
         log_event("reconciliation_job_failed", job_id=job_id, tenant_id=tenant_id, error=str(exc))
 
@@ -215,6 +237,7 @@ def reconciliation_job_status(
     job = build_store(Settings.from_env()).get_job(job_id, tenant_id=tenant_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
+    record_audit_event("reconciliation.job.status_read", tenant_id=tenant_id, job_id=job_id, status=job["status"])
     return job
 
 
@@ -276,8 +299,26 @@ def reconcile(request: ReconciliationRequest, _: None = Depends(require_api_key)
     summary["review_cases_persisted"] = store.save_review_cases(
         build_review_cases(result["decisions"])
     )
+    record_reconciliation(summary)
+    record_audit_event("reconciliation.completed", tenant_id="default", mode="sync", summary=summary)
     log_event("reconciliation_completed", **summary)
     return summary
+
+
+@app.get("/metrics")
+def metrics() -> dict[str, int]:
+    return snapshot()
+
+
+@app.get("/v1/audit")
+def audit_events(
+    limit: int = 100,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    if limit > 500:
+        raise HTTPException(status_code=400, detail="limit must be <= 500")
+    return {"tenant_id": tenant_id, "events": read_audit_events(tenant_id=tenant_id, limit=limit)}
 
 
 @app.get("/storage/health")
