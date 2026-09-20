@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "sources": {
+    "bank": {
+      "required_columns": ["transaction_id", "transaction_date", "amount", "narration", "reference", "account_number"],
+      "optional_columns": ["value_date", "debit", "credit"]
+    },
+    "purchase_register": {
+      "required_columns": ["invoice_record_id", "invoice_number", "invoice_date", "vendor_name", "gstin", "taxable_value", "total"],
+      "optional_columns": ["cgst", "sgst", "igst"]
+    },
+    "sales_register": {
+      "required_columns": ["invoice_number", "invoice_date", "amount", "counterparty_name", "source_record_id"],
+      "optional_columns": ["counterparty_gstin", "taxable_amount", "cgst", "sgst", "igst", "total_tax"]
+    },
+    "tally": {
+      "required_columns": ["transaction_date", "amount", "transaction_type", "source_record_id"],
+      "optional_columns": ["reference_number", "account_name", "description", "debit", "credit"]
+    },
+    "invoice": {
+      "required_columns": ["invoice_number", "invoice_date", "amount", "source_record_id"],
+      "optional_columns": ["counterparty_name", "counterparty_gstin", "taxable_amount", "cgst", "sgst", "igst", "total_tax"]
+    },
+    "gst": {
+      "required_columns": ["invoice_number", "invoice_date", "amount", "counterparty_gstin", "source_record_id"],
+      "optional_columns": ["taxable_amount", "cgst", "sgst", "igst", "total_tax"]
+    }
+  }
+}

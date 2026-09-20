@@ -50,7 +50,9 @@ class PostgresStore:
                     purchase_key TEXT NOT NULL,
                     status TEXT NOT NULL,
                     result JSONB,
-                    error TEXT
+                    error TEXT,
+                    idempotency_key TEXT,
+                    UNIQUE(tenant_id, idempotency_key)
                 );
 
                 CREATE TABLE IF NOT EXISTS review_cases (
@@ -172,14 +174,22 @@ class PostgresStore:
             )
 
 
-    def create_job(self, *, job_id: str, tenant_id: str, bank_key: str, purchase_key: str) -> None:
+    def create_job(self, *, job_id: str, tenant_id: str, bank_key: str, purchase_key: str, idempotency_key: str | None = None) -> str:
         with self._connect() as connection:
+            if idempotency_key:
+                existing = connection.execute(
+                    "SELECT job_id FROM reconciliation_jobs WHERE tenant_id = %s AND idempotency_key = %s",
+                    (tenant_id, idempotency_key),
+                ).fetchone()
+                if existing:
+                    return existing[0]
             connection.execute(
                 "INSERT INTO reconciliation_jobs "
-                "(job_id, tenant_id, bank_key, purchase_key, status) VALUES (%s, %s, %s, %s, 'queued')",
-                (job_id, tenant_id, bank_key, purchase_key),
+                "(job_id, tenant_id, bank_key, purchase_key, status, idempotency_key) VALUES (%s, %s, %s, %s, 'queued', %s)",
+                (job_id, tenant_id, bank_key, purchase_key, idempotency_key),
             )
             connection.commit()
+            return job_id
 
     def get_job(self, job_id: str, *, tenant_id: str) -> dict | None:
         with self._connect() as connection:

@@ -30,7 +30,7 @@ This repository is intentionally built as a **systems engineering portfolio proj
 | Packaging | Docker |
 | Local orchestration | Docker Compose |
 | CI/CD | GitHub Actions |
-| Security | Dependency audit, container build validation, security headers, rate limiting |
+| Security | Dependency audit, container build validation, security headers, Redis-backed rate limiting |
 | Test coverage | Automated unit + integration suite |
 
 ---
@@ -461,8 +461,11 @@ docker compose up --build
 ## Engineering Documentation
 
 - [System Architecture](architecture/architecture.md)
+- [Architecture Diagrams](docs/architecture-diagrams.md)
+- [API Examples](docs/api-examples.md)
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
 - [Environment Configuration](.env.example)
+- [Source Contracts](data/contracts/source_contracts.json)
 
 ---
 

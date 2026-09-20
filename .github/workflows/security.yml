@@ -1,0 +1,46 @@
+name: Security and Container Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install package and audit tooling
+        run: |
+          python -m pip install --upgrade pip setuptools
+          python -m pip install -e .
+          python -m pip install pip-audit
+          python -m pip uninstall -y ai-financial-reconciliation-platform
+      - name: Audit Python dependencies
+        run: pip-audit --strict --skip-editable
+
+  container-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production container
+        run: docker build --pull -t reconciliation-platform:${{ github.sha }} .
+      - name: Validate Compose configuration
+        env:
+          RECONCILIATION_API_KEY: ci-only-placeholder
+          RATE_LIMIT_BACKEND: redis
+        run: docker compose config
