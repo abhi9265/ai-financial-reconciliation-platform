@@ -24,7 +24,7 @@ from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
 from reconciliation_platform.ingestion.uploads import build_object_key, validate_tenant_id
 from reconciliation_platform.models.canonical_transaction import SourceSystem
-from reconciliation_platform.rate_limit import RateLimiter
+from reconciliation_platform.rate_limit import build_rate_limiter
 
 configure_logging()
 app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
@@ -41,7 +41,6 @@ async def request_context(request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round((time.perf_counter()-started)*1000,2))
     return response
-_rate_limiter = RateLimiter(limit=Settings.from_env().rate_limit_per_minute)
 
 
 class ReconciliationRequest(BaseModel):
@@ -104,6 +103,20 @@ def _validate_upload(upload: UploadFile) -> None:
         raise HTTPException(status_code=415, detail="only CSV uploads are supported")
 
 
+async def _read_upload_limited(upload: UploadFile, max_bytes: int = 10 * 1024 * 1024) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(status_code=413, detail="each upload must be <= 10 MiB")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @app.post("/v1/reconcile")
 async def reconcile_uploaded_files(
     bank_file: UploadFile = File(...),  # noqa: B008
@@ -114,16 +127,13 @@ async def reconcile_uploaded_files(
     _validate_upload(bank_file)
     _validate_upload(purchase_file)
     settings = Settings.from_env()
-    if not _rate_limiter.allow(tenant_id):
+    if not build_rate_limiter(settings).allow(tenant_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
     object_store = build_object_store(settings)
     bank_key = build_object_key(tenant_id, SourceSystem.BANK, bank_file.filename or "bank.csv")
     purchase_key = build_object_key(tenant_id, SourceSystem.PURCHASE_REGISTER, purchase_file.filename or "purchase.csv")
-    bank_content = await bank_file.read()
-    purchase_content = await purchase_file.read()
-    max_bytes = 10 * 1024 * 1024
-    if len(bank_content) > max_bytes or len(purchase_content) > max_bytes:
-        raise HTTPException(status_code=413, detail="each upload must be <= 10 MiB")
+    bank_content = await _read_upload_limited(bank_file)
+    purchase_content = await _read_upload_limited(purchase_file)
     object_store.put(bank_key, bank_content)
     object_store.put(purchase_key, purchase_content)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -226,10 +236,8 @@ async def enqueue_reconciliation(
     bank_key = build_object_key(tenant_id, SourceSystem.BANK, bank_file.filename or "bank.csv")
     purchase_key = build_object_key(tenant_id, SourceSystem.PURCHASE_REGISTER, purchase_file.filename or "purchase.csv")
     max_bytes = 10 * 1024 * 1024
-    bank_content = await bank_file.read()
-    purchase_content = await purchase_file.read()
-    if len(bank_content) > max_bytes or len(purchase_content) > max_bytes:
-        raise HTTPException(status_code=413, detail="each upload must be <= 10 MiB")
+    bank_content = await _read_upload_limited(bank_file)
+    purchase_content = await _read_upload_limited(purchase_file)
     object_store.put(bank_key, bank_content)
     object_store.put(purchase_key, purchase_content)
     job_id = uuid.uuid4().hex
