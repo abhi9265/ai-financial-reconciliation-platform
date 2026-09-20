@@ -121,10 +121,13 @@ async def _read_upload_limited(upload: UploadFile, max_bytes: int = 10 * 1024 * 
 async def reconcile_uploaded_files(
     bank_file: UploadFile = File(...),  # noqa: B008
     purchase_file: UploadFile = File(...),  # noqa: B008
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     _: None = Depends(require_api_key),
     tenant_id: str = Depends(require_tenant_id),
 ) -> dict:
     _validate_upload(bank_file)
+    if idempotency_key is not None and not 1 <= len(idempotency_key) <= 255:
+        raise HTTPException(status_code=400, detail="Idempotency-Key must be 1-255 characters")
     _validate_upload(purchase_file)
     settings = Settings.from_env()
     if not build_rate_limiter(settings).allow(tenant_id):
@@ -243,9 +246,21 @@ async def enqueue_reconciliation(
     object_store.put(purchase_key, purchase_content)
     job_id = uuid.uuid4().hex
     store = build_store(settings)
-    store.create_job(
-        job_id=job_id, tenant_id=tenant_id, bank_key=bank_key, purchase_key=purchase_key
+    existing_or_created_job_id = store.create_job(
+        job_id=job_id,
+        tenant_id=tenant_id,
+        bank_key=bank_key,
+        purchase_key=purchase_key,
+        idempotency_key=idempotency_key,
     )
+    if existing_or_created_job_id != job_id:
+        existing_job = store.get_job(existing_or_created_job_id, tenant_id=tenant_id)
+        return {
+            "job_id": existing_or_created_job_id,
+            "tenant_id": tenant_id,
+            "status": existing_job["status"] if existing_job else "queued",
+            "idempotent_replay": True,
+        }
     if settings.job_queue == "celery":
         from reconciliation_platform.worker import process_job
         process_job.delay(job_id, tenant_id, bank_key, purchase_key)
