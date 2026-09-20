@@ -21,3 +21,13 @@ def test_settings_from_environment(monkeypatch):
     assert settings.ai_model == "test-model"
     assert settings.ai_timeout_seconds == 5
     assert settings.api_key_required is True
+
+
+def test_queue_and_rate_limit_settings(monkeypatch):
+    monkeypatch.setenv("JOB_QUEUE", "celery")
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "10")
+    settings = Settings.from_env()
+    assert settings.job_queue == "celery"
+    assert settings.redis_url == "redis://localhost:6379/0"
+    assert settings.rate_limit_per_minute == 10
