@@ -126,8 +126,6 @@ async def reconcile_uploaded_files(
 ) -> dict:
     _validate_upload(bank_file)
     _validate_upload(purchase_file)
-    if idempotency_key is not None and not 1 <= len(idempotency_key) <= 255:
-        raise HTTPException(status_code=400, detail="Idempotency-Key must be 1-255 characters")
     settings = Settings.from_env()
     if not build_rate_limiter(settings).allow(tenant_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
@@ -236,6 +234,8 @@ async def enqueue_reconciliation(
 ) -> dict:
     _validate_upload(bank_file)
     _validate_upload(purchase_file)
+    if idempotency_key is not None and not 1 <= len(idempotency_key) <= 255:
+        raise HTTPException(status_code=400, detail="Idempotency-Key must be 1-255 characters")
     settings = Settings.from_env()
     if not build_rate_limiter(settings).allow(tenant_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
