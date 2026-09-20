@@ -202,3 +202,12 @@ TENANT_API_KEYS=acme_01:replace-with-secret-a,other_01:replace-with-secret-b
 The `/v1/reconcile` endpoint requires `X-Tenant-ID` and, when this mapping is configured, verifies that the supplied `X-API-Key` is authorized for that tenant. A valid key for one tenant cannot be used to access another tenant.
 
 Do not commit real API keys. Store production credentials in the deployment secret manager.
+
+
+### Asynchronous reconciliation
+
+For production-style non-blocking processing, use `POST /v1/reconcile/async`. The API stores uploaded files in object storage, creates a tenant-scoped persistent job record, returns HTTP 202 with a `job_id`, and processes the reconciliation in a background worker task.
+
+Poll `GET /v1/reconcile/jobs/{job_id}` with the same tenant credentials. Jobs transition through `queued`, `running`, `succeeded`, or `failed`. Job results and errors are persisted in the configured SQLite/PostgreSQL backend.
+
+This background-task implementation is intentionally lightweight for the portfolio MVP. A distributed queue such as Celery/RQ/SQS + worker deployment is the next scaling step for high-volume workloads.
