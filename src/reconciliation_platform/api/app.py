@@ -12,8 +12,7 @@ from reconciliation_platform.pipeline import run_pipeline, summarize\nfrom recon
 from reconciliation_platform.storage.sqlite import SQLiteStore
 
 configure_logging()
-app = FastAPI(title="AI Financial Reconciliation Platform", version="0.3.0")\nSTORE_PATH = os.getenv("RECONCILIATION_DB", "data/reconciliation.db")
-
+app = FastAPI(title="AI Financial Reconciliation Platform", version="0.3.0")\n
 
 class ReconciliationRequest(BaseModel):
     data_dir: str = Field(default="data/synthetic/seed")
@@ -54,5 +53,5 @@ def reconcile(request: ReconciliationRequest) -> dict:
 
 @app.get("/storage/health")
 def storage_health() -> dict[str, int | str]:
-    store = SQLiteStore(STORE_PATH)
+    store = SQLiteStore(os.getenv("RECONCILIATION_DB", "data/reconciliation.db"))
     return {"status": "ok", "review_cases": store.review_case_count()}
