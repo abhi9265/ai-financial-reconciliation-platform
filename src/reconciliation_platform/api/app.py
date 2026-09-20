@@ -4,6 +4,7 @@ from __future__ import annotations
 import secrets
 import tempfile
 import uuid
+import time
 from fastapi import BackgroundTasks
 from pathlib import Path
 
@@ -23,9 +24,24 @@ from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
 from reconciliation_platform.ingestion.uploads import build_object_key, validate_tenant_id
 from reconciliation_platform.models.canonical_transaction import SourceSystem
+from reconciliation_platform.rate_limit import RateLimiter
 
 configure_logging()
 app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
+
+
+@app.middleware("http")
+async def request_context(request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    started = time.perf_counter()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round((time.perf_counter()-started)*1000,2))
+    return response
+_rate_limiter = RateLimiter(limit=Settings.from_env().rate_limit_per_minute)
 
 
 class ReconciliationRequest(BaseModel):
@@ -98,6 +114,8 @@ async def reconcile_uploaded_files(
     _validate_upload(bank_file)
     _validate_upload(purchase_file)
     settings = Settings.from_env()
+    if not _rate_limiter.allow(tenant_id):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
     object_store = build_object_store(settings)
     bank_key = build_object_key(tenant_id, SourceSystem.BANK, bank_file.filename or "bank.csv")
     purchase_key = build_object_key(tenant_id, SourceSystem.PURCHASE_REGISTER, purchase_file.filename or "purchase.csv")
@@ -219,7 +237,11 @@ async def enqueue_reconciliation(
     store.create_job(
         job_id=job_id, tenant_id=tenant_id, bank_key=bank_key, purchase_key=purchase_key
     )
-    background_tasks.add_task(_run_reconciliation_job, job_id, tenant_id, bank_key, purchase_key)
+    if settings.job_queue == "celery":
+        from reconciliation_platform.worker import process_job
+        process_job.delay(job_id, tenant_id, bank_key, purchase_key)
+    else:
+        background_tasks.add_task(_run_reconciliation_job, job_id, tenant_id, bank_key, purchase_key)
     return {
         "job_id": job_id,
         "tenant_id": tenant_id,

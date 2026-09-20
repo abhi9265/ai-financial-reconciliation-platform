@@ -1,4 +1,12 @@
 services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -18,10 +26,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       API_KEY_REQUIRED: "true"
       RECONCILIATION_API_KEY: ${RECONCILIATION_API_KEY:?set RECONCILIATION_API_KEY in your shell or .env}
       DATABASE_URL: postgresql://reconciliation:reconciliation@postgres:5432/reconciliation
+      JOB_QUEUE: ${JOB_QUEUE:-background}
+      REDIS_URL: redis://redis:6379/0
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-30}
       AI_PROVIDER: ${AI_PROVIDER:-none}
       AI_MODEL: ${AI_MODEL:-gpt-5.6-luna}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-20}
@@ -40,6 +53,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A reconciliation_platform.worker:celery_app worker --loglevel=INFO
+    environment:
+      DATABASE_URL: postgresql://reconciliation:reconciliation@postgres:5432/reconciliation
+      REDIS_URL: redis://redis:6379/0
+      AI_PROVIDER: ${AI_PROVIDER:-none}
+      AI_MODEL: ${AI_MODEL:-gpt-5.6-luna}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-20}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OBJECT_STORE: ${OBJECT_STORE:-local}
+      OBJECT_STORE_PATH: /app/data/objects
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_PREFIX: ${S3_PREFIX:-reconciliation}
+    volumes:
+      - ./data:/app/data:ro
+      - object_data:/app/data/objects
 
 volumes:
   postgres_data:

@@ -20,6 +20,9 @@ class Settings:
     s3_bucket: str | None
     s3_prefix: str
     tenant_api_keys: dict[str, str]
+    job_queue: str
+    redis_url: str
+    rate_limit_per_minute: int
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -47,4 +50,7 @@ class Settings:
             s3_bucket=os.getenv("S3_BUCKET") or None,
             s3_prefix=os.getenv("S3_PREFIX", "reconciliation"),
             tenant_api_keys=tenant_api_keys,
+            job_queue=os.getenv("JOB_QUEUE", "background").strip().lower(),
+            redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
+            rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")),
         )

@@ -160,3 +160,11 @@ def test_audit_is_tenant_scoped(monkeypatch, tmp_path):
     record_audit_event("test.event", tenant_id="tenant_b")
     response = client.get("/v1/audit", headers={"X-Tenant-ID": "tenant_a"})
     assert [event["tenant_id"] for event in response.json()["events"]] == ["tenant_a"]
+
+
+def test_rate_limiter_blocks_excess_requests():
+    from reconciliation_platform.rate_limit import RateLimiter
+    limiter = RateLimiter(limit=1, window_seconds=60)
+    assert limiter.allow("tenant") is True
+    assert limiter.allow("tenant") is False
+    assert limiter.allow("other-tenant") is True
