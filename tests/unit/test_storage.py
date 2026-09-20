@@ -18,6 +18,8 @@ def _tx() -> CanonicalTransaction:
         currency="INR",
         amount_direction="DEBIT",
         description="vendor payment",
+        ingestion_batch_id="BATCH1",
+        ingested_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
 
