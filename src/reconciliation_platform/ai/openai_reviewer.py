@@ -24,9 +24,9 @@ class OpenAIReviewer:
     def review(self, decision: ReconciliationDecision) -> AIReviewResult:
         payload = {
             "bank_record_id": decision.bank_record_id,
-            "candidate_record_id": decision.candidate_record_id,
+            "candidate_record_id": decision.counterparty_record_id,
             "current_status": decision.status,
-            "current_tier": decision.match_tier,
+            "current_tier": decision.tier,
             "deterministic_confidence": decision.confidence,
             "explanation": decision.explanation,
             "signals": list(decision.signals),
