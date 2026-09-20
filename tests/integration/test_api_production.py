@@ -80,7 +80,7 @@ def test_async_upload_creates_tenant_scoped_job(monkeypatch, tmp_path) -> None:
 
 def test_cross_tenant_job_access_is_rejected(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("API_KEY_REQUIRED", "true")
-    monkeypatch.setenv("RECONCILIATION_API_KEY", "root-key")
+    monkeypatch.setenv("RECONCILIATION_API_KEY", "acme-key")
     monkeypatch.setenv("TENANT_API_KEYS", "acme_01:acme-key,other_01:other-key")
     monkeypatch.setenv("OBJECT_STORE", "local")
     monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
