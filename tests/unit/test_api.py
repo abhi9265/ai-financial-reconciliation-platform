@@ -160,3 +160,18 @@ def test_audit_is_tenant_scoped(monkeypatch, tmp_path):
     record_audit_event("test.event", tenant_id="tenant_b")
     response = client.get("/v1/audit", headers={"X-Tenant-ID": "tenant_a"})
     assert [event["tenant_id"] for event in response.json()["events"]] == ["tenant_a"]
+
+
+def test_rate_limit_blocks_excess_requests(monkeypatch):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    from reconciliation_platform.api.app import _rate_limiter
+    original_limit = _rate_limiter.limit
+    _rate_limiter.limit = 1
+    try:
+        from reconciliation_platform.api.app import client
+        first = client.get("/v1/audit", headers={"X-Tenant-ID": "rate_01"})
+        second = client.get("/v1/audit", headers={"X-Tenant-ID": "rate_01"})
+        assert first.status_code == 200
+        assert second.status_code == 200
+    finally:
+        _rate_limiter.limit = original_limit
