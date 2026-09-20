@@ -121,14 +121,13 @@ async def _read_upload_limited(upload: UploadFile, max_bytes: int = 10 * 1024 * 
 async def reconcile_uploaded_files(
     bank_file: UploadFile = File(...),  # noqa: B008
     purchase_file: UploadFile = File(...),  # noqa: B008
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     _: None = Depends(require_api_key),
     tenant_id: str = Depends(require_tenant_id),
 ) -> dict:
     _validate_upload(bank_file)
+    _validate_upload(purchase_file)
     if idempotency_key is not None and not 1 <= len(idempotency_key) <= 255:
         raise HTTPException(status_code=400, detail="Idempotency-Key must be 1-255 characters")
-    _validate_upload(purchase_file)
     settings = Settings.from_env()
     if not build_rate_limiter(settings).allow(tenant_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
@@ -229,6 +228,7 @@ async def enqueue_reconciliation(
     background_tasks: BackgroundTasks,
     bank_file: UploadFile = File(...),  # noqa: B008
     purchase_file: UploadFile = File(...),  # noqa: B008
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     _: None = Depends(require_api_key),
     tenant_id: str = Depends(require_tenant_id),
 ) -> dict:
