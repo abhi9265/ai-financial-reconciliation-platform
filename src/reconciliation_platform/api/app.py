@@ -11,16 +11,13 @@ from reconciliation_platform.ai.openai_reviewer import OpenAIReviewer
 from reconciliation_platform.ai.reviewer import NoOpAIReviewer, escalate_reviews
 from reconciliation_platform.config import Settings
 from reconciliation_platform.decisioning.review import build_review_cases
-from reconciliation_platform.evaluation.metrics import (
-    evaluate_against_ground_truth,
-    load_ground_truth,
-)
+from reconciliation_platform.evaluation.metrics import evaluate_against_ground_truth, load_ground_truth
 from reconciliation_platform.observability import configure_logging, log_event
 from reconciliation_platform.pipeline import run_pipeline, summarize
-from reconciliation_platform.storage.sqlite import SQLiteStore
+from reconciliation_platform.storage.factory import build_store
 
 configure_logging()
-app = FastAPI(title="AI Financial Reconciliation Platform", version="0.4.0")
+app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
 
 
 class ReconciliationRequest(BaseModel):
@@ -31,9 +28,7 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
     settings = Settings.from_env()
     if not settings.api_key_required:
         return
-    if not settings.api_key or not x_api_key or not secrets.compare_digest(
-        x_api_key, settings.api_key
-    ):
+    if not settings.api_key or not x_api_key or not secrets.compare_digest(x_api_key, settings.api_key):
         raise HTTPException(status_code=401, detail="invalid or missing API key")
 
 
@@ -49,10 +44,10 @@ def resolve_data_dir(data_dir: str) -> Path:
 
 def build_ai_reviewer(settings: Settings):
     if settings.ai_provider == "openai":
-        if not settings.api_key:
-            raise HTTPException(status_code=503, detail="AI provider configured without API key")
+        if not settings.openai_api_key:
+            raise HTTPException(status_code=503, detail="AI provider configured without OpenAI API key")
         return OpenAIReviewer(
-            api_key=settings.api_key,
+            api_key=settings.openai_api_key,
             model=settings.ai_model,
             timeout=settings.ai_timeout_seconds,
         )
@@ -64,14 +59,21 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/ready")
+def readiness() -> dict[str, str]:
+    settings = Settings.from_env()
+    try:
+        store = build_store(settings)
+        store.review_case_count()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="storage unavailable") from exc
+    return {"status": "ready"}
+
+
 @app.post("/reconcile")
-def reconcile(
-    request: ReconciliationRequest,
-    _: None = Depends(require_api_key),
-) -> dict:
+def reconcile(request: ReconciliationRequest, _: None = Depends(require_api_key)) -> dict:
     settings = Settings.from_env()
     root = resolve_data_dir(request.data_dir)
-
     log_event("reconciliation_started", data_dir=str(root))
     result = run_pipeline(root)
     summary = summarize(result)
@@ -106,9 +108,10 @@ def reconcile(
         },
     }
 
-    store = SQLiteStore(settings.database_path)
-    inserted_reviews = store.save_review_cases(build_review_cases(result["decisions"]))
-    summary["review_cases_persisted"] = inserted_reviews
+    store = build_store(settings)
+    summary["review_cases_persisted"] = store.save_review_cases(
+        build_review_cases(result["decisions"])
+    )
     log_event("reconciliation_completed", **summary)
     return summary
 
@@ -116,5 +119,5 @@ def reconcile(
 @app.get("/storage/health")
 def storage_health(_: None = Depends(require_api_key)) -> dict[str, int | str]:
     settings = Settings.from_env()
-    store = SQLiteStore(settings.database_path)
+    store = build_store(settings)
     return {"status": "ok", "review_cases": store.review_case_count()}

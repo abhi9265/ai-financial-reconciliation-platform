@@ -135,3 +135,30 @@ OpenAI API credentials must be supplied through the runtime environment and are 
 ## API security
 
 The reconciliation and storage endpoints require `X-API-Key` by default. Set `API_KEY_REQUIRED=false` only for local development/testing. The API also restricts reconciliation input paths to the repository's `data/` root, reducing the risk of arbitrary local filesystem access.
+
+
+## Production deployment
+
+The repository includes a production-oriented container path.
+
+Run locally with Docker Compose:
+
+    cp .env.example .env
+    # Set RECONCILIATION_API_KEY in .env
+    docker compose up --build
+
+The API container uses PostgreSQL by default through DATABASE_URL. SQLite remains available as a local fallback when DATABASE_URL is unset.
+
+Endpoints:
+- GET /health — liveness check; no authentication required.
+- GET /ready — readiness check; verifies storage connectivity.
+- POST /reconcile — authenticated reconciliation execution.
+- GET /storage/health — authenticated persistence check.
+
+### Secrets
+
+Keep RECONCILIATION_API_KEY and OPENAI_API_KEY outside source control. The reconciliation API key is intentionally separate from the OpenAI credential. In a real deployment, inject both from the platform's secret manager rather than committing a .env file.
+
+### Production limitations
+
+The current API still accepts a repository-local data_dir. The container path is therefore deployment-ready for a controlled internal workload, but a multi-tenant production service should replace this with authenticated file uploads/object storage and tenant-scoped authorization. TLS termination, rate limiting, distributed tracing, and metrics are also deployment-layer concerns.
