@@ -162,3 +162,30 @@ Keep RECONCILIATION_API_KEY and OPENAI_API_KEY outside source control. The recon
 ### Production limitations
 
 The current API still accepts a repository-local data_dir. The container path is therefore deployment-ready for a controlled internal workload, but a multi-tenant production service should replace this with authenticated file uploads/object storage and tenant-scoped authorization. TLS termination, rate limiting, distributed tracing, and metrics are also deployment-layer concerns.
+
+
+## Tenant-aware file ingestion
+
+Production-facing ingestion is available at `POST /v1/reconcile`.
+
+Send:
+- `X-API-Key` for API authentication when enabled.
+- `X-Tenant-ID` for tenant isolation.
+- `bank_file` as a CSV upload.
+- `purchase_file` as a CSV upload.
+
+Uploaded files are stored under a tenant-scoped object key such as `tenants/acme_01/raw/bank/...`. The configured object-store backend can be local filesystem storage for development or Amazon S3 for production. The reconciliation engine processes a temporary materialized copy, so clients never provide a server filesystem path.
+
+Each uploaded file is limited to 10 MiB and only CSV files are accepted.
+
+Tenant IDs are restricted to safe alphanumeric, underscore, and hyphen identifiers. Review-case persistence is tenant-scoped, preventing identical source record IDs in separate tenants from sharing a review namespace.
+
+Example:
+
+    curl -X POST http://localhost:8000/v1/reconcile \
+      -H "X-API-Key: $RECONCILIATION_API_KEY" \
+      -H "X-Tenant-ID: acme_01" \
+      -F "bank_file=@data/synthetic/seed/bank_transactions.csv" \
+      -F "purchase_file=@data/synthetic/seed/purchase_invoices.csv"
+
+For production S3, set `OBJECT_STORE=s3`, `S3_BUCKET`, and AWS credentials through the deployment platform's secret/identity mechanism.
