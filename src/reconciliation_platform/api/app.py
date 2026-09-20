@@ -232,10 +232,11 @@ async def enqueue_reconciliation(
     _validate_upload(bank_file)
     _validate_upload(purchase_file)
     settings = Settings.from_env()
+    if not build_rate_limiter(settings).allow(tenant_id):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
     object_store = build_object_store(settings)
     bank_key = build_object_key(tenant_id, SourceSystem.BANK, bank_file.filename or "bank.csv")
     purchase_key = build_object_key(tenant_id, SourceSystem.PURCHASE_REGISTER, purchase_file.filename or "purchase.csv")
-    max_bytes = 10 * 1024 * 1024
     bank_content = await _read_upload_limited(bank_file)
     purchase_content = await _read_upload_limited(purchase_file)
     object_store.put(bank_key, bank_content)
