@@ -102,3 +102,32 @@ def test_tenant_api_key_is_bound_to_tenant(monkeypatch):
     )
     assert response.status_code == 200
     assert response.json()["tenant_id"] == "acme_01"
+
+
+def test_async_reconciliation_job(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "jobs.db"))
+    from pathlib import Path
+
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    response = client.post(
+        "/v1/reconcile/async",
+        headers={"X-Tenant-ID": "async_01"},
+        files={
+            "bank_file": ("bank.csv", bank, "text/csv"),
+            "purchase_file": ("purchase.csv", purchase, "text/csv"),
+        },
+    )
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+
+    status = client.get(
+        f"/v1/reconcile/jobs/{job_id}",
+        headers={"X-Tenant-ID": "async_01"},
+    )
+    assert status.status_code == 200
+    assert status.json()["status"] == "succeeded"
+    assert status.json()["result"]["matched"] == 90

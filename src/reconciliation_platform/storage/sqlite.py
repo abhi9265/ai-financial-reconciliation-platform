@@ -153,3 +153,62 @@ class SQLiteStore:
             if tenant_id is None:
                 return int(connection.execute("SELECT COUNT(*) FROM review_cases").fetchone()[0])
             return int(connection.execute("SELECT COUNT(*) FROM review_cases WHERE tenant_id = ?", (tenant_id,)).fetchone()[0])
+
+
+    def create_job(self, *, job_id: str, tenant_id: str, bank_key: str, purchase_key: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reconciliation_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    bank_key TEXT NOT NULL,
+                    purchase_key TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    result TEXT,
+                    error TEXT
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO reconciliation_jobs "
+                "(job_id, tenant_id, bank_key, purchase_key, status) VALUES (?, ?, ?, ?, 'queued')",
+                (job_id, tenant_id, bank_key, purchase_key),
+            )
+
+    def get_job(self, job_id: str, *, tenant_id: str) -> dict | None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reconciliation_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    bank_key TEXT NOT NULL,
+                    purchase_key TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    result TEXT,
+                    error TEXT
+                )
+                """
+            )
+            row = connection.execute(
+                "SELECT job_id, tenant_id, bank_key, purchase_key, status, result, error "
+                "FROM reconciliation_jobs WHERE job_id = ? AND tenant_id = ?",
+                (job_id, tenant_id),
+            ).fetchone()
+            if row is None:
+                return None
+            import json
+            return {
+                "job_id": row[0], "tenant_id": row[1], "status": row[4],
+                "result": json.loads(row[5]) if row[5] else None, "error": row[6],
+            }
+
+    def update_job(self, job_id: str, *, tenant_id: str, status: str, result: dict | None = None, error: str | None = None) -> None:
+        with self._connect() as connection:
+            import json
+            connection.execute(
+                "UPDATE reconciliation_jobs SET status = ?, result = ?, error = ? "
+                "WHERE job_id = ? AND tenant_id = ?",
+                (status, json.dumps(result) if result is not None else None, error, job_id, tenant_id),
+            )
