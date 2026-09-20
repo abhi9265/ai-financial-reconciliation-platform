@@ -62,6 +62,11 @@ class SQLiteStore:
                 );
                 """
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(review_cases)")}
+            if "tenant_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE review_cases ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'"
+                )
 
     def register_batch(
         self,
