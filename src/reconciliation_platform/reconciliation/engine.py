@@ -160,6 +160,7 @@ def reconcile(
             if c.score >= config.fuzzy_review_threshold
             and c.date_difference_days <= config.date_tolerance_days
             and c.amount_difference <= config.near_amount_tolerance
+            and "compatible_transaction_type" in c.signals
         ]
         if fuzzy:
             c = fuzzy[0]
