@@ -88,6 +88,10 @@ automatic match.
 That behavior is intentional: financial reconciliation should prefer an explicit exception
 over an unsupported allocation.
 
+## Verification status
+
+The benchmark workflow is required to pass before this milestone is merged.
+
 ## Next scale milestone
 
 The next benchmark iteration should compare candidate-pair counts and runtime for:
