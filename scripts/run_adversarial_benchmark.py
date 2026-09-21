@@ -49,6 +49,8 @@ def main() -> None:
     auto_precision = correct / (correct + false_auto) if correct + false_auto else 0.0
     match_recall = correct / expected_matches if expected_matches else 0.0
     partial_accuracy = partial_correct / sum(c.relationship == "PARTIAL" for c in cases)
+    candidate_pairs = sum(d.candidate_count for d in decisions)
+    naive_pairs = len(bank) * len(invoices)
     payload = {
         "dataset": {
             "seed": args.seed,
@@ -64,6 +66,11 @@ def main() -> None:
             "full_match_recall": match_recall,
             "partial_payment_accuracy": partial_accuracy,
             "false_auto_matches": false_auto,
+        },
+        "blocking": {
+            "candidate_pairs": candidate_pairs,
+            "naive_pairs": naive_pairs,
+            "candidate_reduction_ratio": round(1 - (candidate_pairs / naive_pairs), 6) if naive_pairs else 0.0,
         },
         "performance": {
             "elapsed_seconds": round(elapsed, 6),
