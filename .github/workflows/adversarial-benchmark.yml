@@ -1,0 +1,28 @@
+name: Adversarial Reconciliation Benchmark
+
+on:
+  pull_request:
+    paths:
+      - "src/reconciliation_platform/reconciliation/**"
+      - "src/reconciliation_platform/evaluation/**"
+      - "scripts/run_adversarial_benchmark.py"
+      - "tests/unit/test_advanced_reconciliation.py"
+      - "docs/adversarial-benchmark.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adversarial-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q tests/unit/test_advanced_reconciliation.py
+      - run: python scripts/run_adversarial_benchmark.py --cases 250 --seed 42
