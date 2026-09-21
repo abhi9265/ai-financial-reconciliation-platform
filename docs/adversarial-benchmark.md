@@ -67,6 +67,17 @@ python scripts/run_adversarial_benchmark.py --cases 10000 --seed 42
 python scripts/run_adversarial_benchmark.py --cases 100000 --seed 42
 ~~~
 
+For measured scalability evidence, use the dedicated runner. It records peak Python
+memory in addition to runtime, throughput, and candidate-pair reduction:
+
+~~~bash
+python scripts/run_scale_benchmark.py --cases 10000 100000 --seed 42 --output scale-results.json
+~~~
+
+The GitHub Actions **Scalability Benchmark** workflow can run the same measurement
+manually with larger sizes. The planned evidence ladder is 10K → 100K → 250K → 500K → 1M.
+Do not describe any size as supported until the benchmark has actually completed at that size.
+
 The script reports measured:
 
 - full-match recall
