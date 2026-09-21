@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import date
 from decimal import Decimal
 from typing import Iterable
 
@@ -79,6 +78,6 @@ def candidate_invoices(
         inv_name = normalize_name(invoice.counterparty_name)
         if inv_bucket in {target_bucket - 1, target_bucket, target_bucket + 1} or (
             bank_name and inv_name == bank_name
-        ):
+        ) or (bank_tokens and bank_tokens.intersection(name_tokens(invoice.counterparty_name))):
             result.append(invoice)
     return result
