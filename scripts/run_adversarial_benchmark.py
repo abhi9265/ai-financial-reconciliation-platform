@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from decimal import Decimal
 
 from reconciliation_platform.evaluation.adversarial import generate_adversarial_cases
 from reconciliation_platform.reconciliation.advanced import reconcile_advanced
