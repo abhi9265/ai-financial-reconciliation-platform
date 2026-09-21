@@ -103,9 +103,8 @@ def reconcile_advanced(
         )
         if subset:
             ids = tuple(c.source_record_id for c in subset)
-            if len({
-                tuple(sorted(x.source_record_id for x in subset))
-            }) == 1:
+            if subset:
+                subset = tuple(sorted(subset, key=lambda x: x.source_record_id))
                 for c in subset:
                     used.add(c.source_record_id)
                     remaining[c.source_record_id] = Decimal("0")
