@@ -191,9 +191,30 @@ The deterministic engine remains authoritative.
 
 ---
 
-## Synthetic Benchmark
+## Benchmarking & Complex Reconciliation
 
-The repository includes a reproducible synthetic benchmark:
+The repository keeps the original 100-row seed benchmark as a fast regression test and adds an adversarial benchmark for harder reconciliation behavior.
+
+The adversarial generator covers:
+
+- vendor-name variants and noisy references
+- amount/date mismatches
+- one-to-many payments
+- partial payments without prematurely consuming invoices
+- explicit REVIEW cases
+- deterministic ground-truth labels
+
+The complex matcher uses candidate blocking before expensive scoring. Blocking combines date windows, amount buckets, normalized counterparty names, and shared name tokens. The benchmark reports measured correctness and runtime rather than storing target numbers.
+
+Run:
+
+~~~bash
+python scripts/run_adversarial_benchmark.py --cases 250 --seed 42
+~~~
+
+For scale experiments, increase `--cases` and record the observed runtime, rows/second, candidate-pair count, and failure modes in `reports/adversarial-benchmark.md`.
+
+### Original synthetic regression benchmark
 
 - **100** bank transactions
 - **95** purchase invoices
@@ -201,17 +222,9 @@ The repository includes a reproducible synthetic benchmark:
 - **5** amount-mismatch review cases
 - **5** unmatched transactions
 
-Current evaluation:
+Current evaluation remains a deliberately simple regression fixture. Its perfect result is not presented as evidence of production accuracy.
 
-| Metric | Result |
-|---|---:|
-| Precision | **1.00** |
-| Recall | **1.00** |
-| Pair accuracy | **1.00** |
-| Exception capture | **1.00** |
-| False auto-matches | **0** |
-
-> These are benchmark results on synthetic data, not claims about production financial accuracy.
+The harder adversarial benchmark is the primary engineering evaluation for complex matching behavior.
 
 ---
 
@@ -471,11 +484,11 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented codebase complete.**
+**Engineering status: production-oriented portfolio implementation; active benchmark-driven development.**
 
-The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support.
+The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, and partial-payment handling.
 
-A live public deployment is intentionally a separate infrastructure step and requires environment-specific services such as managed PostgreSQL/Redis, object storage, TLS, secrets management, centralized monitoring, backups, and alerting.
+A live public deployment is intentionally a separate infrastructure step. This repository does not claim production customer usage or live financial accuracy.
 
 ---
 
