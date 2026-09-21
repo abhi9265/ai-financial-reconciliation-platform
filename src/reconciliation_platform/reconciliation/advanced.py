@@ -107,12 +107,12 @@ def reconcile_advanced(
             for c in subset:
                 used.add(c.source_record_id)
                 remaining[c.source_record_id] = Decimal("0")
-                decisions.append(AdvancedDecision(
-                    bank.source_record_id, ids, "MATCHED", "ONE_TO_MANY",
-                    "BLOCKED_SUBSET", 0.99, bank.amount, Decimal("0"),
-                    "Payment equals an unambiguous bounded combination of invoices.", len(candidates),
-                ))
-                continue
+            decisions.append(AdvancedDecision(
+                bank.source_record_id, ids, "MATCHED", "ONE_TO_MANY",
+                "BLOCKED_SUBSET", 0.99, bank.amount, Decimal("0"),
+                "Payment equals an unambiguous bounded combination of invoices.", len(candidates),
+            ))
+            continue
 
         partial_candidates = [
             c for c in candidates
