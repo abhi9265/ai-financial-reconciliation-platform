@@ -484,9 +484,9 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented portfolio implementation; active benchmark-driven development.**
+**Engineering status: production-oriented foundation complete; active scalability and data-engineering benchmark development.**
 
-The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, and partial-payment handling.
+The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
 A live public deployment is intentionally a separate infrastructure step. This repository does not claim production customer usage or live financial accuracy.
 
