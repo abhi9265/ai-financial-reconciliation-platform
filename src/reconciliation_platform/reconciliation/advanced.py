@@ -6,7 +6,7 @@ from decimal import Decimal
 from itertools import combinations
 
 from reconciliation_platform.models.canonical_transaction import CanonicalTransaction, TransactionType
-from reconciliation_platform.reconciliation.blocking import candidate_invoices
+from reconciliation_platform.reconciliation.blocking import build_invoice_index, candidate_invoices
 from reconciliation_platform.reconciliation.engine import ReconciliationConfig, _candidate
 
 
@@ -67,6 +67,7 @@ def reconcile_advanced(
     used: set[str] = set()
     remaining: dict[str, Decimal] = {i.source_record_id: i.amount for i in invoice_transactions}
     decisions: list[AdvancedDecision] = []
+    invoice_index = build_invoice_index(invoice_transactions)
 
     for bank in bank_transactions:
         candidates = candidate_invoices(
@@ -75,6 +76,7 @@ def reconcile_advanced(
             used=used,
             date_tolerance_days=max(config.date_tolerance_days, 7),
             amount_tolerance=amount_tolerance,
+            index=invoice_index,
         )
         candidates = [c for c in candidates if _compatible(bank, c)]
 
