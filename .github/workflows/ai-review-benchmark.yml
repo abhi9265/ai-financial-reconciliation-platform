@@ -1,0 +1,32 @@
+name: Measured AI Review Benchmark
+
+on:
+  pull_request:
+    paths:
+      - "src/reconciliation_platform/ai/**"
+      - "scripts/run_ai_review_benchmark.py"
+      - "docs/ai-review-benchmark.md"
+      - ".github/workflows/ai-review-benchmark.yml"
+
+jobs:
+  ai-evaluation:
+    if: ${{ secrets.OPENAI_API_KEY != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_REVIEW_MODEL: ${{ vars.OPENAI_REVIEW_MODEL || 'gpt-5.6-luna' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - name: Run 400-case AI evaluation
+        run: python scripts/run_ai_review_benchmark.py --cases 400 --output reports/ai-review-benchmark.json
+      - name: Upload measured AI evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-benchmark-400
+          path: reports/ai-review-benchmark.json
