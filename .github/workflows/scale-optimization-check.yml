@@ -1,0 +1,28 @@
+name: Scale Optimization Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/reconciliation_platform/reconciliation/**"
+      - "scripts/run_scale_benchmark.py"
+      - ".github/workflows/scale-optimization-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  scale-250k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: python scripts/run_scale_benchmark.py --cases 250000 --seed 42 --output scale-250k.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-250k-optimized
+          path: scale-250k.json
