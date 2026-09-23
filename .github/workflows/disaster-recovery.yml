@@ -56,9 +56,12 @@ jobs:
       - name: Restore
         env:
           DATABASE_URL: postgresql://reconciliation:test-password@localhost:5432/reconciliation
-          BACKUP_FILE: ./dr-backup/$(ls dr-backup/*.dump | xargs -n1 basename)
           CONFIRM_RESTORE: YES
-        run: bash ./scripts/restore_postgres.sh
+        run: |
+          BACKUP_FILE="$(find dr-backup -maxdepth 1 -name '*.dump' -print -quit)"
+          test -n "$BACKUP_FILE"
+          export BACKUP_FILE
+          bash ./scripts/restore_postgres.sh
       - name: Verify restore
         env:
           PGPASSWORD: test-password
