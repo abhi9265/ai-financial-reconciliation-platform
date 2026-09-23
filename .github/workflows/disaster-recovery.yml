@@ -1,0 +1,67 @@
+name: Disaster Recovery Drill
+
+on:
+  pull_request:
+    paths:
+      - "scripts/backup_postgres.sh"
+      - "scripts/restore_postgres.sh"
+      - "docs/production-operations.md"
+      - ".github/workflows/disaster-recovery.yml"
+  workflow_dispatch:
+
+jobs:
+  postgres-recovery:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: reconciliation
+          POSTGRES_PASSWORD: test-password
+          POSTGRES_DB: reconciliation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reconciliation -d reconciliation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Seed database
+        env:
+          PGPASSWORD: test-password
+        run: |
+          psql -h localhost -U reconciliation -d reconciliation -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE reconciliation_probe (
+            id integer PRIMARY KEY,
+            tenant_id text NOT NULL,
+            status text NOT NULL
+          );
+          INSERT INTO reconciliation_probe VALUES
+            (1, 'tenant-a', 'MATCHED'),
+            (2, 'tenant-b', 'REVIEW');
+          SQL
+      - name: Backup
+        env:
+          DATABASE_URL: postgresql://reconciliation:test-password@localhost:5432/reconciliation
+          BACKUP_DIR: ./dr-backup
+        run: ./scripts/backup_postgres.sh
+      - name: Destroy probe
+        env:
+          PGPASSWORD: test-password
+        run: psql -h localhost -U reconciliation -d reconciliation -v ON_ERROR_STOP=1 -c "DROP TABLE reconciliation_probe;"
+      - name: Restore
+        env:
+          DATABASE_URL: postgresql://reconciliation:test-password@localhost:5432/reconciliation
+          BACKUP_FILE: ./dr-backup/$(ls dr-backup/*.dump | xargs -n1 basename)
+          CONFIRM_RESTORE: YES
+        run: ./scripts/restore_postgres.sh
+      - name: Verify restore
+        env:
+          PGPASSWORD: test-password
+        run: |
+          test "$(psql -h localhost -U reconciliation -d reconciliation -tAc 'SELECT count(*) FROM reconciliation_probe;')" = "2"
+          test "$(psql -h localhost -U reconciliation -d reconciliation -tAc "SELECT count(*) FROM reconciliation_probe WHERE tenant_id IN ('tenant-a','tenant-b');")" = "2"
