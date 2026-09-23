@@ -1,6 +1,6 @@
 # AI-Powered Financial Reconciliation Platform
 
-> **Production-oriented data engineering case study for financial reconciliation, exception management, and AI-assisted review.**
+> **Production-oriented financial reconciliation platform with deterministic matching, measured scalability evidence, auditable data flows, and advisory AI review.**
 
 A multi-tenant reconciliation platform designed around a simple engineering principle:
 
@@ -191,7 +191,7 @@ The deterministic engine remains authoritative.
 
 ---
 
-## Benchmarking & Complex Reconciliation
+## Engineering Status\n\n**Production-oriented foundation:** implemented and continuously verified by CI.\n\n**Measured scale evidence:** 10K and 100K cases have been executed successfully with deterministic seed 42. Larger gates (250K, 500K and 1M) are run separately and are not described as supported until their measured results are reviewed.\n\n**Measured AI evidence:** the repository contains a 400-case live evaluation harness, but no live accuracy/latency result is claimed without an actual provider credential and completed run.\n\n**Deployment status:** the repository is deployable with Docker/Compose, but no external production deployment or customer workload is claimed.\n\n## Known Limitations\n\n- Synthetic benchmarks are engineering evidence, not proof of production financial accuracy.\n- A real production deployment still requires managed infrastructure, secret management, TLS, centralized monitoring, backup retention and tested recovery procedures.\n- Production RPO/RTO values are deployment-specific and are intentionally not invented here.\n- A third-party penetration test/security assessment has not been represented as completed.\n- Real customer/accountant validation and production financial datasets have not been represented as completed.\n- AI recommendations remain advisory; human approval is required for ambiguous cases.\n\n## Benchmarking & Complex Reconciliation
 
 The repository keeps the original 100-row seed benchmark as a fast regression test and adds an adversarial benchmark for harder reconciliation behavior.
 
@@ -212,7 +212,7 @@ Run:
 python scripts/run_adversarial_benchmark.py --cases 250 --seed 42
 ~~~
 
-For scale experiments, increase `--cases` and record the observed runtime, rows/second, candidate-pair count, and failure modes in `reports/adversarial-benchmark.md`.
+For scale experiments, increase `--cases` and record the observed runtime, rows/second, candidate-pair count, and failure modes in `reports/adversarial-benchmark.md`. The current measured 10K/100K evidence was produced by GitHub Actions with seed 42; larger gates are kept as explicit evidence runs rather than assumptions.
 
 ### Original synthetic regression benchmark
 
