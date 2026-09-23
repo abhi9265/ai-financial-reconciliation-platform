@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
-import tracemalloc
+import resource
 
 from reconciliation_platform.evaluation.adversarial import generate_adversarial_cases
 from reconciliation_platform.reconciliation.advanced import reconcile_advanced
@@ -20,12 +20,10 @@ def run(cases_count: int, seed: int) -> dict[str, object]:
     bank = [case.bank for case in cases]
     invoices = [invoice for case in cases for invoice in case.invoices]
 
-    tracemalloc.start()
     started = time.perf_counter()
     decisions = reconcile_advanced(bank, invoices)
     elapsed = time.perf_counter() - started
-    _, peak_bytes = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
+    peak_bytes = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
 
     expected_matches = sum(case.relationship == "MATCH" for case in cases)
     correct_matches = sum(
