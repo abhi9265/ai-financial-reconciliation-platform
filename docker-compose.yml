@@ -74,7 +74,6 @@ services:
       S3_BUCKET: ${S3_BUCKET:-}
       S3_PREFIX: ${S3_PREFIX:-reconciliation}
     volumes:
-      - ./data:/app/data:ro
       - object_data:/app/data/objects
 
 volumes:
