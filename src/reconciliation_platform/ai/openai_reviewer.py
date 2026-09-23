@@ -10,7 +10,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from reconciliation_platform.ai.reviewer import AIReviewResult
+from reconciliation_platform.ai.reviewer import AIReviewResult, validate_ai_result
 from reconciliation_platform.reconciliation.engine import ReconciliationDecision
 
 
@@ -71,9 +71,12 @@ class OpenAIReviewer:
         )
         result: dict[str, Any] = json.loads(response.output_text)
         confidence = max(0.0, min(1.0, float(result["confidence"])))
-        return AIReviewResult(
-            recommendation=str(result["recommendation"]),
-            confidence=confidence,
-            rationale=str(result["rationale"]),
-            model=self.model,
+        return validate_ai_result(
+            AIReviewResult(
+                recommendation=str(result["recommendation"]),
+                confidence=confidence,
+                rationale=str(result["rationale"]),
+                model=self.model,
+            ),
+            decision,
         )
