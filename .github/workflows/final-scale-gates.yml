@@ -1,0 +1,86 @@
+name: Final Scalability Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/reconciliation_platform/reconciliation/**"
+      - "src/reconciliation_platform/evaluation/**"
+      - "scripts/run_scale_benchmark.py"
+      - ".github/workflows/final-scale-gates.yml"
+
+jobs:
+  scale-10k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: python scripts/run_scale_benchmark.py --cases 10000 --seed 42 --output scale.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-10k
+          path: scale.json
+
+  scale-100k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: python scripts/run_scale_benchmark.py --cases 100000 --seed 42 --output scale.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-100k
+          path: scale.json
+
+  scale-250k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: python scripts/run_scale_benchmark.py --cases 250000 --seed 42 --one-to-many-rate 0.01 --partial-rate 0.01 --output scale.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-250k
+          path: scale.json
+
+  scale-500k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: python scripts/run_scale_benchmark.py --cases 500000 --seed 42 --one-to-many-rate 0.01 --partial-rate 0.01 --output scale.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-500k
+          path: scale.json
+
+  scale-1m:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: python scripts/run_scale_benchmark.py --cases 1000000 --seed 42 --one-to-many-rate 0.01 --partial-rate 0.01 --output scale.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-1m
+          path: scale.json

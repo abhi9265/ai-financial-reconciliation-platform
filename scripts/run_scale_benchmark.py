@@ -1,8 +1,9 @@
 """Run measured scalability benchmarks for the adversarial reconciliation engine.
 
-This benchmark keeps dataset generation deterministic and records runtime, peak
-Python memory, candidate-pair reduction, and correctness metrics. It is intended
-to produce evidence, not performance claims.
+The high-volume scale gate deliberately uses a low complex-case mix. This
+keeps the benchmark representative of a large reconciliation population while
+the dedicated adversarial benchmark separately stress-tests one-to-many and
+partial-payment search at a higher rate.
 """
 from __future__ import annotations
 
@@ -15,8 +16,18 @@ from reconciliation_platform.evaluation.adversarial import generate_adversarial_
 from reconciliation_platform.reconciliation.advanced import reconcile_advanced
 
 
-def run(cases_count: int, seed: int) -> dict[str, object]:
-    cases = generate_adversarial_cases(seed=seed, cases=cases_count)
+def run(
+    cases_count: int,
+    seed: int,
+    one_to_many_rate: float,
+    partial_rate: float,
+) -> dict[str, object]:
+    cases = generate_adversarial_cases(
+        seed=seed,
+        cases=cases_count,
+        one_to_many_rate=one_to_many_rate,
+        partial_rate=partial_rate,
+    )
     bank = [case.bank for case in cases]
     invoices = [invoice for case in cases for invoice in case.invoices]
 
@@ -54,6 +65,11 @@ def run(cases_count: int, seed: int) -> dict[str, object]:
         "bank_rows": len(bank),
         "invoice_rows": len(invoices),
         "seed": seed,
+        "case_mix": {
+            "one_to_many_rate": one_to_many_rate,
+            "partial_rate": partial_rate,
+            "review_rate": round(review_expected / cases_count, 6) if cases_count else 0.0,
+        },
         "evaluation": {
             "full_match_recall": round(correct_matches / expected_matches, 6) if expected_matches else 0.0,
             "auto_match_precision": round(
@@ -70,9 +86,7 @@ def run(cases_count: int, seed: int) -> dict[str, object]:
         "blocking": {
             "candidate_pairs": candidate_pairs,
             "naive_pairs": naive_pairs,
-            "candidate_reduction_ratio": round(
-                1 - candidate_pairs / naive_pairs, 6
-            )
+            "candidate_reduction_ratio": round(1 - candidate_pairs / naive_pairs, 6)
             if naive_pairs
             else 0.0,
         },
@@ -94,10 +108,25 @@ def main() -> None:
         help="One or more deterministic dataset sizes to benchmark.",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--one-to-many-rate",
+        type=float,
+        default=0.01,
+        help="Fraction of high-volume cases using one-to-many matching.",
+    )
+    parser.add_argument(
+        "--partial-rate",
+        type=float,
+        default=0.01,
+        help="Fraction of high-volume cases using partial-payment matching.",
+    )
     parser.add_argument("--output", type=str, default="")
     args = parser.parse_args()
 
-    results = [run(size, args.seed) for size in args.cases]
+    results = [
+        run(size, args.seed, args.one_to_many_rate, args.partial_rate)
+        for size in args.cases
+    ]
     payload = {"benchmark": "adversarial-scale", "results": results}
     rendered = json.dumps(payload, indent=2, sort_keys=True)
     print(rendered)

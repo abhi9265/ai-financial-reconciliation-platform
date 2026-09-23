@@ -11,7 +11,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from random import Random
 
-from reconciliation_platform.models.canonical_transaction import CanonicalTransaction, SourceSystem, TransactionType
+from reconciliation_platform.models.canonical_transaction import (
+    CanonicalTransaction,
+    SourceSystem,
+    TransactionType,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +55,15 @@ def _tx(
     )
 
 
-def generate_adversarial_cases(seed: int = 42, cases: int = 250, one_to_many_rate: float = 0.12, partial_rate: float = 0.12) -> list[AdversarialCase]:
+def generate_adversarial_cases(
+    seed: int = 42,
+    cases: int = 250,
+    one_to_many_rate: float = 0.12,
+    partial_rate: float = 0.12,
+) -> list[AdversarialCase]:
+    if not 0 <= one_to_many_rate <= 1 or not 0 <= partial_rate <= 1:
+        raise ValueError("complex-case rates must be between 0 and 1")
+
     rng = Random(seed)
     result: list[AdversarialCase] = []
     for n in range(cases):
@@ -65,10 +77,10 @@ def generate_adversarial_cases(seed: int = 42, cases: int = 250, one_to_many_rat
             a = (amount * Decimal("0.40")).quantize(Decimal("0.01"))
             b = (amount - a).quantize(Decimal("0.01"))
             invoices = (
-                _tx(SourceSystem.PURCHASE_REGISTER, invoice_id + "A", a, day, variant, ref=None, invoice_number=invoice_id + "A", transaction_type=TransactionType.PURCHASE),
-                _tx(SourceSystem.PURCHASE_REGISTER, invoice_id + "B", b, day, variant, ref=None, invoice_number=invoice_id + "B", transaction_type=TransactionType.PURCHASE),
+                _tx(SourceSystem.PURCHASE_REGISTER, invoice_id + "A", a, day, variant, invoice_number=invoice_id + "A", transaction_type=TransactionType.PURCHASE),
+                _tx(SourceSystem.PURCHASE_REGISTER, invoice_id + "B", b, day, variant, invoice_number=invoice_id + "B", transaction_type=TransactionType.PURCHASE),
             )
-            bank = _tx(SourceSystem.BANK, bank_id, amount, day + 1 if day < 20 else day, canonical_name, ref=None, transaction_type=TransactionType.PAYMENT)
+            bank = _tx(SourceSystem.BANK, bank_id, amount, day + 1 if day < 20 else day, canonical_name, transaction_type=TransactionType.PAYMENT)
             result.append(AdversarialCase(bank, invoices, "MATCH", tuple(x.source_record_id for x in invoices)))
         elif rng.random() < partial_rate:
             invoice = _tx(SourceSystem.PURCHASE_REGISTER, invoice_id, amount, day, variant, ref=invoice_id, invoice_number=invoice_id, transaction_type=TransactionType.PURCHASE)
