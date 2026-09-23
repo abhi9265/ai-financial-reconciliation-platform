@@ -8,6 +8,9 @@ on:
       - "docs/ai-review-benchmark.md"
       - ".github/workflows/ai-review-benchmark.yml"
 
+permissions:
+  contents: read
+
 jobs:
   ai-evaluation:
     if: ${{ secrets.OPENAI_API_KEY != '' }}
