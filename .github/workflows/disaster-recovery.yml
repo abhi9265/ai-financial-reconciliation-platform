@@ -48,7 +48,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://reconciliation:test-password@localhost:5432/reconciliation
           BACKUP_DIR: ./dr-backup
-        run: ./scripts/backup_postgres.sh
+        run: bash ./scripts/backup_postgres.sh
       - name: Destroy probe
         env:
           PGPASSWORD: test-password
@@ -58,7 +58,7 @@ jobs:
           DATABASE_URL: postgresql://reconciliation:test-password@localhost:5432/reconciliation
           BACKUP_FILE: ./dr-backup/$(ls dr-backup/*.dump | xargs -n1 basename)
           CONFIRM_RESTORE: YES
-        run: ./scripts/restore_postgres.sh
+        run: bash ./scripts/restore_postgres.sh
       - name: Verify restore
         env:
           PGPASSWORD: test-password
