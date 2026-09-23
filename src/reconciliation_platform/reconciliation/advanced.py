@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from itertools import combinations
 
 from reconciliation_platform.models.canonical_transaction import CanonicalTransaction, TransactionType
 from reconciliation_platform.reconciliation.blocking import build_invoice_index, candidate_invoices
@@ -38,13 +37,42 @@ def _subset_match(
     tolerance: Decimal,
     max_items: int = 3,
 ) -> tuple[CanonicalTransaction, ...] | None:
-    """Find a bounded invoice combination whose total equals the payment."""
-    candidates = [c for c in candidates if _compatible(bank, c)]
-    candidates = sorted(candidates, key=lambda c: (abs(c.amount - bank.amount), c.source_record_id))
-    for size in range(2, min(max_items, len(candidates)) + 1):
-        for subset in combinations(candidates, size):
-            if abs(sum((x.amount for x in subset), Decimal("0")) - bank.amount) <= tolerance:
-                return subset
+    """Find an invoice combination using O(k²) bounded subset search.
+
+    The previous implementation enumerated all combinations. With max_items=3
+    that is manageable for tiny candidate sets but becomes expensive at scale.
+    Pair sums are indexed and triples reuse pair sums, avoiding materializing
+    combinations for every bank transaction.
+    """
+    candidates = sorted(
+        (c for c in candidates if _compatible(bank, c)),
+        key=lambda c: (abs(c.amount - bank.amount), c.source_record_id),
+    )
+    if len(candidates) < 2:
+        return None
+
+    target = bank.amount
+    for i, left in enumerate(candidates):
+        for j in range(i + 1, len(candidates)):
+            right = candidates[j]
+            if abs(left.amount + right.amount - target) <= tolerance:
+                return (left, right)
+
+    if max_items < 3 or len(candidates) < 3:
+        return None
+
+    # For triples, hold the best pair seen for each sum and probe the complement.
+    pair_by_sum: dict[Decimal, tuple[CanonicalTransaction, CanonicalTransaction]] = {}
+    for i, left in enumerate(candidates):
+        for j in range(i + 1, len(candidates)):
+            right = candidates[j]
+            pair_by_sum.setdefault(left.amount + right.amount, (left, right))
+    for k, third in enumerate(candidates):
+        for pair_sum, pair in pair_by_sum.items():
+            if third in pair:
+                continue
+            if abs(pair_sum + third.amount - target) <= tolerance:
+                return pair + (third,)
     return None
 
 
@@ -56,13 +84,7 @@ def reconcile_advanced(
     amount_tolerance: Decimal = Decimal("25"),
     max_one_to_many: int = 3,
 ) -> list[AdvancedDecision]:
-    """Reconcile using blocking plus conservative complex-payment handling.
-
-    Exact one-to-one matches are still delegated to the existing deterministic
-    engine. Complex payments are only auto-matched when the allocation is
-    unambiguous within the bounded candidate set. Partial payments remain
-    explicitly represented instead of consuming the invoice prematurely.
-    """
+    """Reconcile using blocking plus conservative complex-payment handling."""
     config = config or ReconciliationConfig()
     used: set[str] = set()
     remaining: dict[str, Decimal] = {i.source_record_id: i.amount for i in invoice_transactions}
