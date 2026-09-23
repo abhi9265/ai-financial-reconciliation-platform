@@ -51,8 +51,9 @@ def _subset_match(
                 re.findall(r"[a-z0-9]+", (c.counterparty_name or "").lower())
             )
         ]
-        if len(focused) >= 2:
-            candidates = focused
+        if len(focused) < 2:
+            return None
+        candidates = focused
 
     candidates = sorted(candidates, key=lambda c: (abs(c.amount - bank.amount), c.source_record_id))
     pair_sums: dict[Decimal, tuple[int, int]] = {}
