@@ -42,5 +42,6 @@ jobs:
       - name: Validate Compose configuration
         env:
           RECONCILIATION_API_KEY: ci-only-placeholder
+          POSTGRES_PASSWORD: ci-only-postgres-password
           RATE_LIMIT_BACKEND: redis
         run: docker compose config

@@ -12,7 +12,7 @@ services:
     environment:
       POSTGRES_DB: reconciliation
       POSTGRES_USER: reconciliation
-      POSTGRES_PASSWORD: reconciliation
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in your shell or .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +31,7 @@ services:
     environment:
       API_KEY_REQUIRED: "true"
       RECONCILIATION_API_KEY: ${RECONCILIATION_API_KEY:?set RECONCILIATION_API_KEY in your shell or .env}
-      DATABASE_URL: postgresql://reconciliation:reconciliation@postgres:5432/reconciliation
+      DATABASE_URL: postgresql://reconciliation:${POSTGRES_PASSWORD}@postgres:5432/reconciliation
       JOB_QUEUE: ${JOB_QUEUE:-background}
       REDIS_URL: redis://redis:6379/0
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-30}
@@ -64,7 +64,7 @@ services:
         condition: service_healthy
     command: celery -A reconciliation_platform.worker:celery_app worker --loglevel=INFO
     environment:
-      DATABASE_URL: postgresql://reconciliation:reconciliation@postgres:5432/reconciliation
+      DATABASE_URL: postgresql://reconciliation:${POSTGRES_PASSWORD}@postgres:5432/reconciliation
       REDIS_URL: redis://redis:6379/0
       AI_PROVIDER: ${AI_PROVIDER:-none}
       AI_MODEL: ${AI_MODEL:-gpt-5.6-luna}
