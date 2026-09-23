@@ -1,0 +1,47 @@
+name: DAST Security Assessment
+
+on:
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - "src/reconciliation_platform/api/**"
+      - ".github/workflows/dast-security.yml"
+  workflow_dispatch:
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create CI environment
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_PASSWORD=ci-postgres-password
+          RECONCILIATION_API_KEY=ci-api-key
+          EOF
+      - name: Start application
+        run: docker compose up -d --build
+      - name: Wait for readiness
+        run: |
+          for i in {1..30}; do
+            curl -fsS http://localhost:8000/ready && exit 0
+            sleep 5
+          done
+          docker compose ps
+          docker compose logs
+          exit 1
+      - name: OWASP ZAP baseline scan
+        run: |
+          docker run --network host --rm -v "$PWD:/zap/wrk/:rw"             ghcr.io/zaproxy/zaproxy:stable zap-baseline.py             -t http://127.0.0.1:8000/             -r zap-report.html             -J zap-report.json             -I
+      - name: Upload DAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-dast-report
+          path: |
+            zap-report.html
+            zap-report.json
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
