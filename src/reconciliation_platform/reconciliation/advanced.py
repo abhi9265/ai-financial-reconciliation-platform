@@ -67,7 +67,7 @@ def _subset_match(
         for j in range(i + 1, len(candidates)):
             right = candidates[j]
             pair_by_sum.setdefault(left.amount + right.amount, (left, right))
-    for k, third in enumerate(candidates):
+    for third in candidates:
         for pair_sum, pair in pair_by_sum.items():
             if third in pair:
                 continue
