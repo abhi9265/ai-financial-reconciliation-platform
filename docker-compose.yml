@@ -47,7 +47,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data:ro
       - object_data:/app/data/objects
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
