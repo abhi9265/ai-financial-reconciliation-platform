@@ -12,7 +12,7 @@ on:
 jobs:
   scale:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,10 +20,10 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
-      - name: Run 10K and 100K benchmarks
-        run: python scripts/run_scale_benchmark.py --cases 10000 100000 --seed 42 --output scale-results.json
+      - name: Run measured scale ladder
+        run: python scripts/run_scale_benchmark.py --cases 10000 100000 250000 500000 --seed 42 --output scale-results.json
       - name: Upload measured results
         uses: actions/upload-artifact@v4
         with:
-          name: scalability-benchmark-10k-100k
+          name: scalability-benchmark-scale-ladder
           path: scale-results.json
