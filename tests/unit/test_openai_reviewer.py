@@ -38,3 +38,28 @@ def test_openai_reviewer_parses_structured_response():
     assert result.recommendation == "HUMAN_REVIEW"
     assert result.confidence == 0.83
     assert result.model == "test-model"
+
+
+class InvalidResponses:
+    def create(self, **kwargs):
+        return SimpleNamespace(output_text="{not-json")
+
+
+class InvalidClient:
+    def __init__(self):
+        self.responses = InvalidResponses()
+
+
+def test_openai_reviewer_rejects_malformed_response():
+    reviewer = OpenAIReviewer.__new__(OpenAIReviewer)
+    reviewer.client = InvalidClient()
+    reviewer.model = "test-model"
+
+    decision = ReconciliationDecision(
+        "B1", "I1", "REVIEW", "FUZZY", 0.7, "ambiguous", ("near_amount",)
+    )
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="invalid structured response"):
+        reviewer.review(decision)

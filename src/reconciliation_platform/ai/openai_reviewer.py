@@ -6,6 +6,7 @@ deterministic engine. It never changes the authoritative reconciliation decision
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from openai import OpenAI
@@ -17,9 +18,9 @@ from reconciliation_platform.reconciliation.engine import ReconciliationDecision
 class OpenAIReviewer:
     """Use the OpenAI Responses API to produce a structured review recommendation."""
 
-    def __init__(self, *, api_key: str, model: str = "gpt-5.6-luna", timeout: float = 20.0) -> None:
+    def __init__(self, *, api_key: str, model: str | None = None, timeout: float = 20.0) -> None:
         self.client = OpenAI(api_key=api_key, timeout=timeout)
-        self.model = model
+        self.model = model or os.getenv("OPENAI_REVIEW_MODEL", "gpt-5.6-luna")
 
     def review(self, decision: ReconciliationDecision) -> AIReviewResult:
         payload = {
@@ -69,13 +70,20 @@ class OpenAIReviewer:
                 }
             },
         )
-        result: dict[str, Any] = json.loads(response.output_text)
-        confidence = max(0.0, min(1.0, float(result["confidence"])))
+        try:
+            result: dict[str, Any] = json.loads(response.output_text)
+            recommendation = str(result["recommendation"])
+            confidence = float(result["confidence"])
+            rationale = str(result["rationale"])
+        except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise RuntimeError("OpenAI reviewer returned an invalid structured response") from exc
+
+        confidence = max(0.0, min(1.0, confidence))
         return validate_ai_result(
             AIReviewResult(
-                recommendation=str(result["recommendation"]),
+                recommendation=recommendation,
                 confidence=confidence,
-                rationale=str(result["rationale"]),
+                rationale=rationale,
                 model=self.model,
             ),
             decision,
