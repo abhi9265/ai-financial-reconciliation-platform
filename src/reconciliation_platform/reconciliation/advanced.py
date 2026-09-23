@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from itertools import combinations
+import re
 
 from reconciliation_platform.models.canonical_transaction import CanonicalTransaction, TransactionType
 from reconciliation_platform.reconciliation.blocking import build_invoice_index, candidate_invoices
@@ -40,11 +40,40 @@ def _subset_match(
 ) -> tuple[CanonicalTransaction, ...] | None:
     """Find a bounded invoice combination whose total equals the payment."""
     candidates = [c for c in candidates if _compatible(bank, c)]
+    if len(candidates) < 2:
+        return None
+
+    bank_tokens = set(re.findall(r"[a-z0-9]+", (bank.counterparty_name or "").lower()))
+    if bank_tokens:
+        focused = [
+            c for c in candidates
+            if bank_tokens.intersection(
+                re.findall(r"[a-z0-9]+", (c.counterparty_name or "").lower())
+            )
+        ]
+        if len(focused) >= 2:
+            candidates = focused
+
     candidates = sorted(candidates, key=lambda c: (abs(c.amount - bank.amount), c.source_record_id))
-    for size in range(2, min(max_items, len(candidates)) + 1):
-        for subset in combinations(candidates, size):
-            if abs(sum((x.amount for x in subset), Decimal("0")) - bank.amount) <= tolerance:
-                return subset
+    pair_sums: dict[Decimal, tuple[int, int]] = {}
+
+    if max_items >= 2:
+        for i, left in enumerate(candidates):
+            for j in range(i + 1, len(candidates)):
+                right = candidates[j]
+                total = left.amount + right.amount
+                if abs(total - bank.amount) <= tolerance:
+                    return (left, right)
+                pair_sums.setdefault(total, (i, j))
+
+    if max_items >= 3:
+        for i, candidate in enumerate(candidates):
+            target = bank.amount - candidate.amount
+            for total, pair in pair_sums.items():
+                if i in pair:
+                    continue
+                if abs(total - target) <= tolerance:
+                    return tuple(candidates[k] for k in pair) + (candidate,)
     return None
 
 
