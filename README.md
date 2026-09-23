@@ -212,7 +212,7 @@ Run:
 python scripts/run_adversarial_benchmark.py --cases 250 --seed 42
 ~~~
 
-For scale experiments, increase `--cases` and record the observed runtime, rows/second, candidate-pair count, and failure modes in `reports/adversarial-benchmark.md`.
+For scale experiments, use `scripts/run_scale_benchmark.py`. The CI scale ladder measures 10K, 100K, 250K, and 500K cases. Results are evidence only; 1M is not claimed until it is measured on the CI runner. See `docs/data-engineering-layer.md` and `docs/ai-review-benchmark.md` for the next production-oriented layers.
 
 ### Original synthetic regression benchmark
 
@@ -479,14 +479,16 @@ docker compose up --build
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
 - [Environment Configuration](.env.example)
 - [Source Contracts](data/contracts/source_contracts.json)
+- [Data Engineering Layer](docs/data-engineering-layer.md)
+- [AI Review Benchmark](docs/ai-review-benchmark.md)
 
 ---
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; active scalability and data-engineering benchmark development.**
+**Engineering status: production-oriented foundation complete; scalability, data-engineering, and AI-review evidence are being measured.**
 
-The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
+The current milestone adds indexed candidate blocking and bounded subset optimization, a measured 10K/100K/250K/500K scale ladder, explicit Bronze/Silver/Gold Parquet contracts with quarantine and replay semantics, and a 400-case opt-in AI review benchmark. Live AI accuracy/latency and 1M-row support are not claimed until they are actually measured.
 
 A live public deployment is intentionally a separate infrastructure step. This repository does not claim production customer usage or live financial accuracy.
 
