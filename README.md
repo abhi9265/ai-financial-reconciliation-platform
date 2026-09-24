@@ -1,14 +1,301 @@
+<div align="center">
+
 # AI-Powered Financial Reconciliation Platform
 
-> **Production-oriented financial reconciliation platform with deterministic matching, measured scalability evidence, auditable data flows, and advisory AI review.**
+### Production-Oriented Data Engineering + AI System
 
-A multi-tenant reconciliation platform designed around a simple engineering principle:
+**Deterministic evidence decides. AI escalates ambiguity.**
 
-**deterministic evidence decides; AI escalates ambiguity.**
+[![CI](https://img.shields.io/github/actions/workflow/status/abhi9265/ai-financial-reconciliation-platform/ci.yml?branch=main&label=CI)](https://github.com/abhi9265/ai-financial-reconciliation-platform/actions)
+[![Security](https://img.shields.io/github/actions/workflow/status/abhi9265/ai-financial-reconciliation-platform/security.yml?branch=main&label=Security)](https://github.com/abhi9265/ai-financial-reconciliation-platform/actions)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Runtime-Docker-2496ED)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/State-PostgreSQL-4169E1)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Queue-Redis-DC382D)](https://redis.io/)
 
-The system ingests heterogeneous financial records, validates and normalizes them into a canonical transaction model, reconciles records through ordered evidence tiers, persists auditable decisions, and exposes asynchronous processing for scale.
+**Financial Data → Canonical Model → Deterministic Reconciliation → Human / AI Review → Auditable Decision**
 
-This repository is intentionally built as a **systems engineering portfolio project**, not a notebook or CRUD demo.
+</div>
+
+---
+
+## What is this?
+
+Financial reconciliation looks simple until the data is real.
+
+Bank statements, invoices, Tally exports and accounting records rarely arrive with identical identifiers, naming, dates or payment structures. A production system therefore needs more than a fuzzy-match script: it needs **data contracts, lineage, idempotency, tenant isolation, asynchronous processing, explainable decisions, operational controls and measurable evidence**.
+
+This project is built around that idea.
+
+It is a **multi-tenant financial reconciliation platform** that:
+
+- ingests heterogeneous financial records
+- validates and normalizes them into a canonical transaction model
+- performs exact, fuzzy, one-to-many and partial-payment reconciliation
+- uses candidate blocking to control expensive matching work
+- escalates ambiguous cases to human / AI-assisted review
+- persists jobs, review cases and audit events
+- supports asynchronous processing with Celery + Redis
+- exposes operational health and metrics
+- runs as a containerized production-style topology
+
+> **Core design principle:** the LLM is an advisor, not the source of truth.
+
+---
+
+## Executive Engineering Scorecard
+
+| Area | Evidence |
+|---|---|
+| **Reconciliation scale** | **500K synthetic cases** |
+| **Candidate reduction** | **99.9926%** |
+| **Full-match recall** | **100%** on generated ground truth |
+| **Auto-match precision** | **100%** on generated ground truth |
+| **Partial-payment accuracy** | **100%** |
+| **False auto-matches** | **0** in benchmark |
+| **API load smoke** | **1,199 req/s** |
+| **API test volume** | **1,000 requests / 25 concurrency** |
+| **AI safety evaluation** | **400 adversarial cases** |
+| **AI safety result** | Unsafe recommendation downgraded to human review |
+| **Deployment** | Docker + Compose + CI validation |
+| **Security** | Dependency, container, auth, isolation and DAST checks |
+| **Architecture** | Multi-tenant, async, auditable, cloud-agnostic |
+
+> **Evidence note:** these are controlled engineering measurements from CI/test environments, not production SLAs or claims of customer-scale capacity.
+
+---
+
+## Why this is interesting from a Data Engineering perspective
+
+This is intentionally **not just a CRUD API with an LLM attached**.
+
+The system treats reconciliation as a data-engineering pipeline:
+
+~~~text
+                    DATA ENGINEERING LAYER
+
+ Raw Sources
+     │
+     ├── Bank statements
+     ├── Invoices
+     ├── Accounting exports
+     └── GST / supporting records
+     │
+     ▼
+ Validation + Profiling
+     │
+     ▼
+ Normalization
+     │
+     ▼
+ Canonical Transaction Model
+     │
+     ├── lineage
+     ├── deterministic identity
+     ├── schema version
+     └── source metadata
+     │
+     ▼
+ Candidate Blocking
+     │
+     ▼
+ Reconciliation Engine
+     │
+     ├── exact
+     ├── fuzzy
+     ├── one-to-many
+     └── partial payments
+     │
+     ▼
+ Decision + Explanation
+     │
+     ├── MATCHED
+     ├── UNMATCHED
+     └── REVIEW
+     │
+     ▼
+ Audit + Metrics + Human / AI Review
+~~~
+
+The important engineering boundary is:
+
+**source-specific complexity ends at normalization; business matching operates on a stable canonical contract.**
+
+---
+
+## AI Safety Philosophy
+
+Instead of asking an LLM to reconcile everything:
+
+~~~text
+                 AUTHORITATIVE PATH
+
+      Deterministic Evidence
+               │
+               ▼
+       Conservative Matching
+               │
+               ▼
+        Explicit Exceptions
+               │
+               ▼
+          Human Review
+               
+                 ADVISORY PATH
+
+        Ambiguous Review Case
+               │
+               ▼
+          AI Reviewer
+               │
+       structured evidence
+               │
+               ▼
+        Human Decision
+~~~
+
+The AI layer can provide:
+
+- recommendation
+- confidence
+- rationale
+- model metadata
+
+But it **cannot silently convert an uncertain case into an automatic financial match**.
+
+The repository includes an offline safety harness specifically to test this boundary.
+
+---
+
+## Architecture at a glance
+
+~~~text
+                         ┌──────────────────────┐
+                         │   Tenant / Client    │
+                         └──────────┬───────────┘
+                                    │ HTTPS
+                                    ▼
+                         ┌──────────────────────┐
+                         │      FastAPI API     │
+                         │ Auth • Rate Limit    │
+                         └──────┬───────┬───────┘
+                                │       │
+                    raw files   │       │ jobs / audit
+                                ▼       ▼
+                         ┌──────────┐ ┌──────────┐
+                         │  Object  │ │Postgres  │
+                         │ Storage  │ │  State   │
+                         └──────────┘ └────┬─────┘
+                                           │
+                         ┌─────────────────┘
+                         │
+                         ▼
+                      ┌───────┐
+                      │ Redis │
+                      └───┬───┘
+                          │
+                          ▼
+                   ┌────────────┐
+                   │   Celery   │
+                   │   Workers  │
+                   └─────┬──────┘
+                         │
+                         ▼
+              ┌───────────────────────┐
+              │ Validation / Canonical│
+              │ Data Engineering      │
+              └───────────┬───────────┘
+                          ▼
+              ┌───────────────────────┐
+              │ Reconciliation Engine │
+              └───────────┬───────────┘
+                          │
+                    ┌─────┴─────┐
+                    ▼           ▼
+                 MATCHED      REVIEW
+                                │
+                                ▼
+                           AI + Human
+                                │
+                                ▼
+                             AUDIT
+~~~
+
+For the detailed production architecture, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| API | **FastAPI** | Typed, async-friendly service boundary |
+| Data processing | **Python / Pandas / PyArrow** | Financial record transformation |
+| Matching | **Deterministic + fuzzy algorithms** | Reproducible financial decisions |
+| Durable state | **PostgreSQL** | Transactions, jobs, reviews, audit |
+| Queue | **Redis + Celery** | Decouple API from long-running work |
+| Object storage | **S3-compatible / local** | Raw-data durability and replay |
+| AI | **Provider abstraction + OpenAI adapter** | Controlled advisory intelligence |
+| Auth | **API keys + tenant binding** | Tenant-aware access control |
+| Observability | **JSON logs + metrics + audit** | Operational traceability |
+| Runtime | **Docker / Compose** | Reproducible deployment |
+| CI/CD | **GitHub Actions** | Automated quality gates |
+
+---
+
+## Quick Start
+
+### Local development
+
+~~~bash
+git clone https://github.com/abhi9265/ai-financial-reconciliation-platform.git
+cd ai-financial-reconciliation-platform
+
+python -m pip install -e ".[dev]"
+
+# tests
+python -m pytest -q
+
+# lint
+ruff check .
+
+# deterministic demo
+reconcile-demo --data-dir data/synthetic/seed
+~~~
+
+### Production-style local topology
+
+~~~bash
+cp .env.example .env
+# Set secrets in .env
+docker compose up --build
+~~~
+
+Then verify:
+
+~~~bash
+curl http://localhost:8000/health
+curl http://localhost:8000/ready
+curl http://localhost:8000/metrics
+~~~
+
+> For actual cloud deployment, follow **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+---
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [Production Architecture](docs/ARCHITECTURE.md) | System design, data flow, reliability and scaling |
+| [Production Deployment](docs/DEPLOYMENT.md) | Local → staging → production deployment path |
+| [Recruiter / Interview Demo](docs/RECRUITER_DEMO.md) | 60-second pitch, demo flow and interview questions |
+| [System Architecture](architecture/architecture.md) | Existing architecture and contracts |
+| [API Examples](docs/api-examples.md) | API usage examples |
+| [Phase 1 Engineering Report](reports/phase1_mvp_report.md) | Earlier engineering milestone |
+| [Environment Configuration](.env.example) | Configuration reference |
+| [Source Contracts](data/contracts/source_contracts.json) | Data contract reference |
 
 ---
 
@@ -191,7 +478,74 @@ The deterministic engine remains authoritative.
 
 ---
 
-## Engineering Status\n\n**Production-oriented foundation:** implemented and continuously verified by CI.\n\n**Measured scale evidence:** deterministic adversarial reconciliation has been validated through **500K cases** with seed 42. The 500K run measured 100% full-match recall, 100% auto-match precision, 100% partial-payment accuracy, zero false auto-matches, and 99.9926% candidate-pair reduction. 1M is intentionally not a project requirement.\n\n**Measured AI evidence:** the repository contains a 400-case offline AI safety evaluation that validates the advisory boundary and downgrades unsafe match recommendations. A live provider accuracy/latency run requires an external model credential and is not represented as completed.\n\n**Deployment status:** the repository is deployable with Docker/Compose, but no external production deployment or customer workload is claimed.\n\n## Known Limitations\n\n- Synthetic benchmarks are engineering evidence, not proof of production financial accuracy.\n- A real production deployment still requires managed infrastructure, secret management, TLS, centralized monitoring, backup retention and tested recovery procedures.\n- Production RPO/RTO values are deployment-specific and are intentionally not invented here.\n- A third-party penetration test/security assessment has not been represented as completed.\n- Real customer/accountant validation and production financial datasets have not been represented as completed.\n- AI recommendations remain advisory; human approval is required for ambiguous cases.\n\n## Benchmarking & Complex Reconciliation
+## Engineering Readiness
+
+A compact view of what the repository can demonstrate today — without turning the README into a wall of bold text.
+
+### Evidence
+
+```
+  500K        99.9926%       100%        100%         0
+  cases       candidate      recall      precision    false
+              reduction                               auto-matches
+
+  1,199       1,000 / 25     400         0
+  req/s       requests /     AI cases    unsafe
+              concurrency                auto-match escapes
+
+  ─────────────────────────────────────────────────────────────
+  These are controlled CI/test measurements, not production SLAs.
+```
+
+| Area | Current evidence |
+|---|---|
+| Reconciliation | 500K synthetic cases; full-match recall 100% |
+| Decision quality | Auto-match precision 100%; partial-payment accuracy 100% |
+| Candidate blocking | 99.9926% candidate-pair reduction |
+| Safety boundary | Zero false auto-matches in the benchmark |
+| API load | 1,000 requests at 25-way concurrency; 1,199 req/s |
+| AI review | 400-case offline safety evaluation |
+| Runtime | Docker + Compose with API, worker, PostgreSQL and Redis |
+| Security | Automated dependency, container, auth, isolation and DAST checks |
+
+### Deployment boundary
+
+```
+  BUILT + VERIFIED                  STILL REQUIRES REAL INFRASTRUCTURE
+
+  ┌───────────────┐                 ┌──────────────────────────┐
+  │ Data pipeline │                 │ Managed cloud resources  │
+  │ Matching core │                 │ Production secrets / TLS │
+  │ API + workers │ ──────────────▶ │ Monitoring + alerting    │
+  │ Audit + auth  │                 │ Backup / recovery        │
+  │ CI safeguards │                 │ Customer data validation │
+  └───────────────┘                 └──────────────────────────┘
+```
+
+The repository is deployment-ready at the application level, but no live cloud environment, customer workload, production SLA/RPO/RTO, third-party penetration test, or live AI provider evaluation is represented as completed.
+
+### AI boundary
+
+```
+  deterministic evidence
+           │
+           ▼
+      reconciliation
+           │
+      ┌────┴────┐
+      │         │
+    MATCH     REVIEW
+                │
+                ▼
+           AI advisory
+                │
+                ▼
+          human decision
+```
+
+The AI layer is intentionally advisory. Ambiguous financial decisions remain reviewable and auditable rather than being silently promoted to automatic matches.
+
+## Benchmarking & Complex Reconciliation
 
 The repository keeps the original 100-row seed benchmark as a fast regression test and adds an adversarial benchmark for harder reconciliation behavior.
 
@@ -474,6 +828,9 @@ docker compose up --build
 ## Engineering Documentation
 
 - [System Architecture](architecture/architecture.md)
+- [Production Architecture](docs/ARCHITECTURE.md)
+- [Production Deployment Guide](docs/DEPLOYMENT.md)
+- [Recruiter / Interview Demo](docs/RECRUITER_DEMO.md)
 - [Architecture Diagrams](docs/architecture-diagrams.md)
 - [API Examples](docs/api-examples.md)
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
@@ -484,11 +841,11 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; active scalability and data-engineering benchmark development.**
+**Engineering status: production-oriented foundation complete; next phase is deployment validation, workload validation and recruiter-facing presentation.**
 
 The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
-A live public deployment is intentionally a separate infrastructure step. This repository does not claim production customer usage or live financial accuracy.
+The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
 ---
 
