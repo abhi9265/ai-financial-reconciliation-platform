@@ -478,7 +478,72 @@ The deterministic engine remains authoritative.
 
 ---
 
-## Engineering Status\n\n**Production-oriented foundation:** implemented and continuously verified by CI.\n\n**Measured scale evidence:** deterministic adversarial reconciliation has been validated through **500K cases** with seed 42. The 500K run measured 100% full-match recall, 100% auto-match precision, 100% partial-payment accuracy, zero false auto-matches, and 99.9926% candidate-pair reduction. 1M is intentionally not a project requirement.\n\n**Measured AI evidence:** the repository contains a 400-case offline AI safety evaluation that validates the advisory boundary and downgrades unsafe match recommendations. A live provider accuracy/latency run requires an external model credential and is not represented as completed.\n\n**Deployment status:** the repository is deployable with Docker/Compose, but no external production deployment or customer workload is claimed.\n\n## Known Limitations\n\n- Synthetic benchmarks are engineering evidence, not proof of production financial accuracy.\n- A real production deployment still requires managed infrastructure, secret management, TLS, centralized monitoring, backup retention and tested recovery procedures.\n- Production RPO/RTO values are deployment-specific and are intentionally not invented here.\n- A third-party penetration test/security assessment has not been represented as completed.\n- Real customer/accountant validation and production financial datasets have not been represented as completed.\n- AI recommendations remain advisory; human approval is required for ambiguous cases.\n\n## Benchmarking & Complex Reconciliation
+## Engineering Readiness
+
+> **This section answers one question:** what has actually been proven, what is deployable today, and what still requires real-world infrastructure or customer validation?
+
+### 🟢 Proven in the repository
+
+| Signal | Measured evidence | What it demonstrates |
+|---|---:|---|
+| **Reconciliation scale** | **500K cases** | Sustained deterministic matching workload in a controlled benchmark |
+| **Candidate efficiency** | **99.9926% reduction** | Candidate blocking prevents unnecessary pairwise comparisons |
+| **Full-match recall** | **100%** | Generated ground-truth full matches were recovered |
+| **Auto-match precision** | **100%** | No incorrect automatic matches in the benchmark |
+| **Partial-payment accuracy** | **100%** | Split/partial payment scenarios were handled correctly |
+| **False auto-matches** | **0** | Conservative decision boundary held on benchmark data |
+| **API load smoke** | **1,199 req/s** | 1,000 requests completed successfully at 25-way concurrency |
+| **AI safety evaluation** | **400 cases** | Advisory AI boundary and unsafe-recommendation downgrade were exercised |
+| **Security / runtime gates** | **CI verified** | Dependency, container, authentication, isolation and DAST checks are automated |
+
+### 🟡 Deployable, but not claimed as production
+
+The repository can be run as a production-style container topology using **FastAPI + PostgreSQL + Redis + Celery + object storage**. Docker/Compose configuration is validated in CI.
+
+What is **not** claimed:
+
+- no public cloud environment is represented as live
+- no customer financial dataset is represented as validated
+- no production SLA, throughput or RPO/RTO is claimed
+- no third-party penetration test is represented as completed
+- no live AI provider accuracy/latency/cost study is represented as completed
+
+### 🔵 The engineering boundary
+
+The system deliberately separates **what can be proven locally** from **what must be proven in a real deployment**:
+
+```text
+                    REPOSITORY-PROVEN
+                           │
+       ┌───────────────────┼───────────────────┐
+       │                   │                   │
+  Reconciliation       Reliability          Security
+  correctness          + load              controls
+       │                   │                   │
+       └───────────────────┼───────────────────┘
+                           ▼
+                  DEPLOYMENT VALIDATION
+                           │
+                           ▼
+              REAL DATA / REAL INFRASTRUCTURE
+                           │
+                 ┌─────────┼─────────┐
+                 ▼         ▼         ▼
+             Workload     AI      Operations
+             validation  eval      + monitoring
+```
+
+**Bottom line:** the engineering foundation is heavily automated and evidence-backed; production deployment and customer validation remain explicit next-phase work rather than implied by the README.
+
+## Known Limitations
+
+- Synthetic benchmarks are engineering evidence, not proof of production financial accuracy.
+- A real production deployment still requires managed infrastructure, secret management, TLS, centralized monitoring, backup retention and tested recovery procedures.
+- Production RPO/RTO values are deployment-specific and are intentionally not invented here.
+- Real customer/accountant validation and production financial datasets have not been represented as completed.
+- AI recommendations remain advisory; human approval is required for ambiguous cases.
+
+## Benchmarking & Complex Reconciliation
 
 The repository keeps the original 100-row seed benchmark as a fast regression test and adds an adversarial benchmark for harder reconciliation behavior.
 
