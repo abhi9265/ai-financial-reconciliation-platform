@@ -1,6 +1,7 @@
 """Customer-shaped financial data validation suite."""
 from __future__ import annotations
-import argparse, json
+import argparse
+import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -20,7 +21,7 @@ VENDORS = (
 )
 
 def make_tx(source, rid, amount, day, name, tx_type, *, ref=None, invoice=None,
-            file_name="bank.csv", row=1, description=None, gstin=None):
+            file_name="bank.csv", row=1, description=None, gstin=None, currency="INR"):
     amount = Decimal(str(amount))
     debit_types = {TransactionType.PAYMENT, TransactionType.PURCHASE}
     direction = AmountDirection.DEBIT if tx_type in debit_types else AmountDirection.CREDIT
@@ -172,7 +173,8 @@ def run(per_scenario=40, seed=42, output="customer-data-validation.json"):
     }
     rendered = json.dumps(result, indent=2, sort_keys=True)
     print(rendered)
-    if output: Path(output).write_text(rendered + "\n", encoding="utf-8")
+    if output:
+        Path(output).write_text(rendered + "\n", encoding="utf-8")
     if failures or contract["invalid_records_rejected"] != 2 or not contract["record_hash_stable_across_ingestion_metadata"] or not contract["lineage_fields_present"]:
         raise SystemExit(1)
 
