@@ -51,3 +51,23 @@ def test_one_to_many_three_invoice_path():
     assert result[0].status == "MATCHED"
     assert result[0].relationship == "ONE_TO_MANY"
     assert set(result[0].counterparty_record_ids) == {first.source_record_id, second.source_record_id, third.source_record_id}
+
+def test_oversized_complex_candidate_set_routes_to_review():
+    cases = generate_adversarial_cases(seed=21, cases=1, one_to_many_rate=1.0, partial_rate=0.0)
+    case = cases[0]
+    base = case.invoices[0]
+    invoices = [
+        base.model_copy(
+            update={
+                "source_record_id": f"OVERSIZED-{i}",
+                "transaction_id": f"OVERSIZED-{i}",
+                "amount": case.bank.amount,
+            }
+        )
+        for i in range(251)
+    ]
+    result = reconcile_advanced([case.bank], invoices)
+    assert result[0].status == "REVIEW"
+    assert result[0].relationship == "AMBIGUOUS"
+    assert result[0].candidate_count == 251
+\n
