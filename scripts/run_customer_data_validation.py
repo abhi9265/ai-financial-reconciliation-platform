@@ -148,7 +148,7 @@ def validate_contract(sample):
 
 def run(per_scenario=40, seed=42, output="customer-data-validation.json"):
     cases = build_cases(seed, per_scenario)
-    decisions = reconcile_advanced([c[1] for c in cases], [i for c in cases for i in c[2]])
+    decisions = [reconcile_advanced([case[1]], list(case[2]))[0] for case in cases]
     failures = []
     scenario_counts = {}
     passed = 0
