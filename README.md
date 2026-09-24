@@ -480,68 +480,70 @@ The deterministic engine remains authoritative.
 
 ## Engineering Readiness
 
-> **This section answers one question:** what has actually been proven, what is deployable today, and what still requires real-world infrastructure or customer validation?
+A compact view of what the repository can demonstrate today — without turning the README into a wall of bold text.
 
-### 🟢 Proven in the repository
+### Evidence
 
-| Signal | Measured evidence | What it demonstrates |
-|---|---:|---|
-| **Reconciliation scale** | **500K cases** | Sustained deterministic matching workload in a controlled benchmark |
-| **Candidate efficiency** | **99.9926% reduction** | Candidate blocking prevents unnecessary pairwise comparisons |
-| **Full-match recall** | **100%** | Generated ground-truth full matches were recovered |
-| **Auto-match precision** | **100%** | No incorrect automatic matches in the benchmark |
-| **Partial-payment accuracy** | **100%** | Split/partial payment scenarios were handled correctly |
-| **False auto-matches** | **0** | Conservative decision boundary held on benchmark data |
-| **API load smoke** | **1,199 req/s** | 1,000 requests completed successfully at 25-way concurrency |
-| **AI safety evaluation** | **400 cases** | Advisory AI boundary and unsafe-recommendation downgrade were exercised |
-| **Security / runtime gates** | **CI verified** | Dependency, container, authentication, isolation and DAST checks are automated |
+```
+  500K        99.9926%       100%        100%         0
+  cases       candidate      recall      precision    false
+              reduction                               auto-matches
 
-### 🟡 Deployable, but not claimed as production
+  1,199       1,000 / 25     400         0
+  req/s       requests /     AI cases    unsafe
+              concurrency                auto-match escapes
 
-The repository can be run as a production-style container topology using **FastAPI + PostgreSQL + Redis + Celery + object storage**. Docker/Compose configuration is validated in CI.
-
-What is **not** claimed:
-
-- no public cloud environment is represented as live
-- no customer financial dataset is represented as validated
-- no production SLA, throughput or RPO/RTO is claimed
-- no third-party penetration test is represented as completed
-- no live AI provider accuracy/latency/cost study is represented as completed
-
-### 🔵 The engineering boundary
-
-The system deliberately separates **what can be proven locally** from **what must be proven in a real deployment**:
-
-```text
-                    REPOSITORY-PROVEN
-                           │
-       ┌───────────────────┼───────────────────┐
-       │                   │                   │
-  Reconciliation       Reliability          Security
-  correctness          + load              controls
-       │                   │                   │
-       └───────────────────┼───────────────────┘
-                           ▼
-                  DEPLOYMENT VALIDATION
-                           │
-                           ▼
-              REAL DATA / REAL INFRASTRUCTURE
-                           │
-                 ┌─────────┼─────────┐
-                 ▼         ▼         ▼
-             Workload     AI      Operations
-             validation  eval      + monitoring
+  ─────────────────────────────────────────────────────────────
+  These are controlled CI/test measurements, not production SLAs.
 ```
 
-**Bottom line:** the engineering foundation is heavily automated and evidence-backed; production deployment and customer validation remain explicit next-phase work rather than implied by the README.
+| Area | Current evidence |
+|---|---|
+| Reconciliation | 500K synthetic cases; full-match recall 100% |
+| Decision quality | Auto-match precision 100%; partial-payment accuracy 100% |
+| Candidate blocking | 99.9926% candidate-pair reduction |
+| Safety boundary | Zero false auto-matches in the benchmark |
+| API load | 1,000 requests at 25-way concurrency; 1,199 req/s |
+| AI review | 400-case offline safety evaluation |
+| Runtime | Docker + Compose with API, worker, PostgreSQL and Redis |
+| Security | Automated dependency, container, auth, isolation and DAST checks |
 
-## Known Limitations
+### Deployment boundary
 
-- Synthetic benchmarks are engineering evidence, not proof of production financial accuracy.
-- A real production deployment still requires managed infrastructure, secret management, TLS, centralized monitoring, backup retention and tested recovery procedures.
-- Production RPO/RTO values are deployment-specific and are intentionally not invented here.
-- Real customer/accountant validation and production financial datasets have not been represented as completed.
-- AI recommendations remain advisory; human approval is required for ambiguous cases.
+```
+  BUILT + VERIFIED                  STILL REQUIRES REAL INFRASTRUCTURE
+
+  ┌───────────────┐                 ┌──────────────────────────┐
+  │ Data pipeline │                 │ Managed cloud resources  │
+  │ Matching core │                 │ Production secrets / TLS │
+  │ API + workers │ ──────────────▶ │ Monitoring + alerting    │
+  │ Audit + auth  │                 │ Backup / recovery        │
+  │ CI safeguards │                 │ Customer data validation │
+  └───────────────┘                 └──────────────────────────┘
+```
+
+The repository is deployment-ready at the application level, but no live cloud environment, customer workload, production SLA/RPO/RTO, third-party penetration test, or live AI provider evaluation is represented as completed.
+
+### AI boundary
+
+```
+  deterministic evidence
+           │
+           ▼
+      reconciliation
+           │
+      ┌────┴────┐
+      │         │
+    MATCH     REVIEW
+                │
+                ▼
+           AI advisory
+                │
+                ▼
+          human decision
+```
+
+The AI layer is intentionally advisory. Ambiguous financial decisions remain reviewable and auditable rather than being silently promoted to automatic matches.
 
 ## Benchmarking & Complex Reconciliation
 
