@@ -40,7 +40,8 @@ Run the deterministic scale benchmark with one or more dataset sizes:
 python scripts/run_scale_benchmark.py --cases 10000 100000 250000 500000 1000000 --seed 42 --output scale-results.json
 ~~~
 
-The planned evidence ladder is **10K → 100K → 250K → 500K → 1M**. Record the observed runtime,
-peak memory, throughput, candidate-pair count, candidate reduction ratio, and correctness
-metrics only after each run completes. No dataset size is considered production-supported merely
-because it is a benchmark target.
+The evidence ladder for this project is **10K → 100K → 250K → 500K**. The 500K run is the
+selected upper-scale portfolio gate. Record observed runtime, peak memory, throughput,
+candidate-pair count, candidate reduction ratio, and correctness metrics only after each run
+completes. 1M is intentionally not a project requirement; benchmark size alone is not a
+production-capacity claim.
