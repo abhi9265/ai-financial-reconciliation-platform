@@ -840,20 +840,13 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; next phase is deployment validation, workload validation and recruiter-facing presentation.**
+**Engineering status: production-oriented foundation complete; Phase 1 realistic customer-shaped data validation is now implemented and CI-gated.**
 
 The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
-The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
+The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. Phase 1 now includes deterministic customer-shaped validation across bank/Tally/GST-style inputs, partial payments, one-to-many matching, date windows, incompatible financial noise, unmatched exceptions and canonical-contract validation. See [docs/CUSTOMER_DATA_VALIDATION.md](docs/CUSTOMER_DATA_VALIDATION.md). A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
 ---
-
-## License
-
-This project is an engineering portfolio implementation using synthetic financial data.
-
-
-
 
 ## Architecture — Four Deep-Dive Views
 
@@ -880,3 +873,7 @@ Matching is layered from candidate blocking and deterministic exact matching thr
 AI is deliberately advisory rather than authoritative. Deterministic evidence can auto-match high-confidence cases; ambiguous cases receive structured AI analysis and then go through human approval. Unsafe AI recommendations are downgraded to human review.
 
 ![AI Decision Boundary](docs/diagrams/04-ai-decision-boundary.svg)
+
+## License
+
+This project is an engineering portfolio implementation using synthetic financial data.
