@@ -72,7 +72,7 @@ This is intentionally **not just a CRUD API with an LLM attached**.
 
 The system treats reconciliation as a data-engineering pipeline:
 
-![Data engineering and reconciliation flow](https://raw.githubusercontent.com/abhi9265/ai-financial-reconciliation-platform/main/docs/diagrams/02-data-reconciliation-flow.svg)
+![Data engineering and reconciliation flow](docs/diagrams/02-data-reconciliation-flow-safe.svg)
 
 ~~~text
                     DATA ENGINEERING LAYER
@@ -132,7 +132,7 @@ Instead of asking an LLM to reconcile everything:
 
 
 
-![Deployment and AI decision boundary](https://raw.githubusercontent.com/abhi9265/ai-financial-reconciliation-platform/main/docs/diagrams/03-deployment-and-ai-boundary.svg)
+![Deployment and AI decision boundary](docs/diagrams/03-deployment-and-ai-boundary-safe.svg)
 
 ~~~text
                  AUTHORITATIVE PATH
@@ -859,4 +859,4 @@ The repository now includes a production deployment blueprint, container/Compose
 
 This project is an engineering portfolio implementation using synthetic financial data.
 
-![End-to-end system architecture](https://raw.githubusercontent.com/abhi9265/ai-financial-reconciliation-platform/main/docs/diagrams/01-system-architecture.svg)\n
+![End-to-end system architecture](docs/diagrams/01-system-architecture-safe.svg)\n
