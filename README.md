@@ -856,4 +856,4 @@ The repository now includes a production deployment blueprint, container/Compose
 
 This project is an engineering portfolio implementation using synthetic financial data.
 
-![End-to-End System Architecture](docs/diagrams/01-end-to-end-architecture.svg)\n
+
