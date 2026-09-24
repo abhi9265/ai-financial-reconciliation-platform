@@ -72,11 +72,8 @@ The diagram below is the **primary visual architecture map** for the project. It
 
 ![1. End-to-End System Architecture](docs/diagrams/01-end-to-end-architecture.svg)
 
-![2. Data Engineering Flow](docs/diagrams/02-data-engineering-flow.svg)
 
-![3. Reconciliation and Matching Logic](docs/diagrams/03-reconciliation-matching-logic.svg)
 
-![4. AI Decision Boundary](docs/diagrams/04-ai-decision-boundary.svg)
 
 ### 1. End-to-End Architecture — how financial data becomes an auditable decision
 
@@ -857,3 +854,30 @@ The repository now includes a production deployment blueprint, container/Compose
 This project is an engineering portfolio implementation using synthetic financial data.
 
 
+
+
+## Architecture — Four Deep-Dive Views
+
+### 1. End-to-End System Architecture
+
+The complete runtime path from heterogeneous financial sources through validation, canonicalization, deterministic reconciliation, controlled AI review, human approval, and auditable outputs.
+
+![End-to-End System Architecture](docs/diagrams/01-end-to-end-architecture.svg)
+
+### 2. Data Engineering Flow
+
+The data-engineering boundary is deliberately upstream of reconciliation: source-specific parsing, validation, normalization, deduplication, lineage, and enrichment produce a stable canonical transaction contract before matching begins.
+
+![Data Engineering Flow](docs/diagrams/02-data-engineering-flow.svg)
+
+### 3. Reconciliation & Matching Logic
+
+Matching is layered from candidate blocking and deterministic exact matching through fuzzy matching, partial/one-to-many handling, and bounded complex matching. This keeps the search space controlled while preserving auditability.
+
+![Reconciliation and Matching Logic](docs/diagrams/03-reconciliation-matching-logic.svg)
+
+### 4. AI Decision Boundary
+
+AI is deliberately advisory rather than authoritative. Deterministic evidence can auto-match high-confidence cases; ambiguous cases receive structured AI analysis and then go through human approval. Unsafe AI recommendations are downgraded to human review.
+
+![AI Decision Boundary](docs/diagrams/04-ai-decision-boundary.svg)
