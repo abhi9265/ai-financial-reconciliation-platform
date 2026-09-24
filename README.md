@@ -44,22 +44,6 @@ It is a **multi-tenant financial reconciliation platform** that:
 
 ---
 
-## System Maps
-
-The fastest way to understand the platform is to follow the data, not the code.
-
-### 1. End-to-end architecture
-
-![End-to-end system architecture](docs/diagrams/01-system-architecture.svg)
-
-### 2. Data engineering and reconciliation flow
-
-![Data engineering and reconciliation flow](docs/diagrams/02-data-reconciliation-flow.svg)
-
-### 3. Deployment and AI decision boundary
-
-![Deployment and AI decision boundary](docs/diagrams/03-deployment-and-ai-boundary.svg)
-
 ## Executive Engineering Scorecard
 
 | Area | Evidence |
@@ -144,7 +128,7 @@ The important engineering boundary is:
 
 Instead of asking an LLM to reconcile everything:
 
-~~~text
+\n\n<img src="docs/diagrams/03-deployment-and-ai-boundary.svg" alt="Deployment and AI decision boundary" width="100%">\n\n~~~text
                  AUTHORITATIVE PATH
 
       Deterministic Evidence
@@ -867,4 +851,4 @@ The repository now includes a production deployment blueprint, container/Compose
 
 ## License
 
-This project is an engineering portfolio implementation using synthetic financial data.
+This project is an engineering portfolio implementation using synthetic financial data.\n\n<img src="docs/diagrams/01-system-architecture.svg" alt="End-to-end system architecture" width="100%">\n
