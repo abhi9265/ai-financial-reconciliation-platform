@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from bisect import bisect_left, bisect_right
 from decimal import Decimal
 import re
 
@@ -37,10 +38,11 @@ def _subset_match(
     *,
     tolerance: Decimal,
     max_items: int = 3,
+    max_complex_candidates: int = 250,
 ) -> tuple[CanonicalTransaction, ...] | None:
-    """Find a bounded invoice combination whose total equals the payment."""
+    """Find a bounded invoice combination without unbounded combinatorial search."""
     candidates = [c for c in candidates if _compatible(bank, c)]
-    if len(candidates) < 2:
+    if len(candidates) < 2 or len(candidates) > max_complex_candidates:
         return None
 
     bank_tokens = set(re.findall(r"[a-z0-9]+", (bank.counterparty_name or "").lower()))
@@ -53,27 +55,39 @@ def _subset_match(
         ]
         if len(focused) >= 2:
             candidates = focused
+            if len(candidates) > max_complex_candidates:
+                return None
 
-    candidates = sorted(candidates, key=lambda c: (abs(c.amount - bank.amount), c.source_record_id))
-    pair_sums: dict[Decimal, tuple[int, int]] = {}
+    candidates = sorted(candidates, key=lambda c: (c.amount, c.source_record_id))
+    amounts = [c.amount for c in candidates]
 
     if max_items >= 2:
         for i, left in enumerate(candidates):
-            for j in range(i + 1, len(candidates)):
+            target = bank.amount - left.amount
+            lo = bisect_left(amounts, target - tolerance)
+            hi = bisect_right(amounts, target + tolerance)
+            for j in range(max(i + 1, lo), min(hi, len(candidates))):
                 right = candidates[j]
-                total = left.amount + right.amount
-                if abs(total - bank.amount) <= tolerance:
+                if abs(left.amount + right.amount - bank.amount) <= tolerance:
                     return (left, right)
-                pair_sums.setdefault(total, (i, j))
 
     if max_items >= 3:
-        for i, candidate in enumerate(candidates):
+        pair_sums: list[tuple[Decimal, int, int]] = []
+        for i, left in enumerate(candidates):
+            for j in range(i + 1, len(candidates)):
+                pair_sums.append((left.amount + candidates[j].amount, i, j))
+        pair_sums.sort(key=lambda item: item[0])
+        pair_totals = [item[0] for item in pair_sums]
+        for k, candidate in enumerate(candidates):
             target = bank.amount - candidate.amount
-            for total, pair in pair_sums.items():
-                if i in pair:
+            lo = bisect_left(pair_totals, target - tolerance)
+            hi = bisect_right(pair_totals, target + tolerance)
+            for pos in range(lo, hi):
+                _, i, j = pair_sums[pos]
+                if k in (i, j):
                     continue
-                if abs(total - target) <= tolerance:
-                    return tuple(candidates[k] for k in pair) + (candidate,)
+                if abs(pair_totals[pos] + candidate.amount - bank.amount) <= tolerance:
+                    return (candidates[i], candidates[j], candidate)
     return None
 
 
@@ -131,6 +145,7 @@ def reconcile_advanced(
             [c for c in candidates if remaining[c.source_record_id] == c.amount],
             tolerance=amount_tolerance,
             max_items=max_one_to_many,
+            max_complex_candidates=250,
         )
         if subset:
             subset = tuple(sorted(subset, key=lambda x: x.source_record_id))
