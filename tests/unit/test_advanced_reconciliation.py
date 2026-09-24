@@ -52,6 +52,7 @@ def test_one_to_many_three_invoice_path():
     assert result[0].relationship == "ONE_TO_MANY"
     assert set(result[0].counterparty_record_ids) == {first.source_record_id, second.source_record_id, third.source_record_id}
 
+
 def test_oversized_complex_candidate_set_routes_to_review():
     cases = generate_adversarial_cases(seed=21, cases=1, one_to_many_rate=1.0, partial_rate=0.0)
     case = cases[0]
