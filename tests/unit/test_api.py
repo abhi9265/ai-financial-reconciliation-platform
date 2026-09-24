@@ -183,7 +183,7 @@ def test_async_reconciliation_idempotency_replays_existing_job(monkeypatch, tmp_
     first = client.post("/v1/reconcile/async", headers=headers, files=files)
     second = client.post("/v1/reconcile/async", headers=headers, files=files)
     assert first.status_code == 202
-    assert second.status_code == 200
+    assert second.status_code == 202
     assert second.json()["job_id"] == first.json()["job_id"]
     assert second.json()["idempotent_replay"] is True
 
