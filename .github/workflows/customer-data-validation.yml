@@ -1,0 +1,25 @@
+name: Customer Data Validation
+
+on:
+  pull_request:
+    paths:
+      - "src/reconciliation_platform/**"
+      - "scripts/run_customer_data_validation.py"
+      - "tests/**"
+      - ".github/workflows/customer-data-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  realistic-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: python scripts/run_customer_data_validation.py --per-scenario 40 --seed 42 --output customer-data-validation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: customer-data-validation
+          path: customer-data-validation.json
