@@ -44,6 +44,22 @@ It is a **multi-tenant financial reconciliation platform** that:
 
 ---
 
+## System Maps
+
+The fastest way to understand the platform is to follow the data, not the code.
+
+### 1. End-to-end architecture
+
+![End-to-end system architecture](docs/diagrams/01-system-architecture.svg)
+
+### 2. Data engineering and reconciliation flow
+
+![Data engineering and reconciliation flow](docs/diagrams/02-data-reconciliation-flow.svg)
+
+### 3. Deployment and AI decision boundary
+
+![Deployment and AI decision boundary](docs/diagrams/03-deployment-and-ai-boundary.svg)
+
 ## Executive Engineering Scorecard
 
 | Area | Evidence |
