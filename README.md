@@ -70,7 +70,13 @@ It is a **multi-tenant financial reconciliation platform** that:
 
 The diagram below is the **primary visual architecture map** for the project. It is intentionally dense: instead of three small, generic diagrams, it shows the system as an interview-ready engineering story — architecture, data flow, matching logic, AI governance, deployment, measured performance, repository structure and technology choices.
 
-![AI Financial Reconciliation Platform — architecture and engineering overview](docs/architecture-overview.jpg)
+![1. End-to-End System Architecture](docs/diagrams/01-end-to-end-architecture.svg)
+
+![2. Data Engineering Flow](docs/diagrams/02-data-engineering-flow.svg)
+
+![3. Reconciliation and Matching Logic](docs/diagrams/03-reconciliation-matching-logic.svg)
+
+![4. AI Decision Boundary](docs/diagrams/04-ai-decision-boundary.svg)
 
 ### 1. End-to-End Architecture — how financial data becomes an auditable decision
 
