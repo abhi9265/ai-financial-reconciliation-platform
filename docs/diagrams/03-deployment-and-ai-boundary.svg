@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620">
 <rect width="1400" height="620" fill="#f8fafc"/>
-<text x="60" y="60" font-family="Arial" font-size="32" font-weight="700" fill="#0f172a">03 · Deployment & AI Decision Boundary</text>
+<text x="60" y="60" font-family="Arial" font-size="32" font-weight="700" fill="#0f172a">03 · Deployment &amp; AI Decision Boundary</text>
 <text x="60" y="92" font-family="Arial" font-size="18" fill="#475569">Production-style runtime with a conservative AI boundary</text>
 <rect x="60" y="145" width="1280" height="180" rx="20" fill="white" stroke="#cbd5e1" stroke-width="2"/>
 <text x="90" y="180" font-family="Arial" font-size="20" font-weight="700" fill="#0f172a">Application runtime</text>
