@@ -474,6 +474,9 @@ docker compose up --build
 ## Engineering Documentation
 
 - [System Architecture](architecture/architecture.md)
+- [Production Architecture](docs/ARCHITECTURE.md)
+- [Production Deployment Guide](docs/DEPLOYMENT.md)
+- [Recruiter / Interview Demo](docs/RECRUITER_DEMO.md)
 - [Architecture Diagrams](docs/architecture-diagrams.md)
 - [API Examples](docs/api-examples.md)
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
@@ -484,11 +487,11 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; active scalability and data-engineering benchmark development.**
+**Engineering status: production-oriented foundation complete; next phase is deployment validation, workload validation and recruiter-facing presentation.**
 
 The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
-A live public deployment is intentionally a separate infrastructure step. This repository does not claim production customer usage or live financial accuracy.
+The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
 ---
 
