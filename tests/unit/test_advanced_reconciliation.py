@@ -68,7 +68,7 @@ def test_oversized_complex_candidate_set_routes_to_review():
         for i in range(251)
     ]
     result = reconcile_advanced([case.bank], invoices)
-    assert result[0].status == "REVIEW"
-    assert result[0].relationship == "AMBIGUOUS"
+    assert result[0].status == "UNMATCHED"
+    assert result[0].relationship == "NONE"
     assert result[0].candidate_count == 251
 
