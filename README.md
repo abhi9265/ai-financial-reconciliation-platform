@@ -66,113 +66,104 @@ It is a **multi-tenant financial reconciliation platform** that:
 
 ---
 
-## Why this is interesting from a Data Engineering perspective
+## Architecture & Engineering Map
 
-This is intentionally **not just a CRUD API with an LLM attached**.
+The diagram below is the **primary visual architecture map** for the project. It is intentionally dense: instead of three small, generic diagrams, it shows the system as an interview-ready engineering story — architecture, data flow, matching logic, AI governance, deployment, measured performance, repository structure and technology choices.
 
-The system treats reconciliation as a data-engineering pipeline:
+![AI Financial Reconciliation Platform — architecture and engineering overview](docs/architecture-overview.jpg)
 
-![Data engineering and reconciliation flow](docs/diagrams/02-data-reconciliation-flow-safe.svg)
+### 1. End-to-End Architecture — how financial data becomes an auditable decision
 
-~~~text
-                    DATA ENGINEERING LAYER
+The first section explains the complete production path:
 
- Raw Sources
-     │
-     ├── Bank statements
-     ├── Invoices
-     ├── Accounting exports
-     └── GST / supporting records
-     │
-     ▼
- Validation + Profiling
-     │
-     ▼
- Normalization
-     │
-     ▼
- Canonical Transaction Model
-     │
-     ├── lineage
-     ├── deterministic identity
-     ├── schema version
-     └── source metadata
-     │
-     ▼
- Candidate Blocking
-     │
-     ▼
- Reconciliation Engine
-     │
-     ├── exact
-     ├── fuzzy
-     ├── one-to-many
-     └── partial payments
-     │
-     ▼
- Decision + Explanation
-     │
-     ├── MATCHED
-     ├── UNMATCHED
-     └── REVIEW
-     │
-     ▼
- Audit + Metrics + Human / AI Review
-~~~
+**Data Sources → Ingestion & Validation → Canonical Data Layer → Reconciliation Engine → Decision Layer → Human + AI Review → Outputs & Storage**
 
-The important engineering boundary is:
+The important architectural choice is the separation between **data engineering** and **decisioning**.
 
-**source-specific complexity ends at normalization; business matching operates on a stable canonical contract.**
+- **Data Sources** absorb real-world heterogeneity: bank statements, invoices, Tally/GST/accounting exports and manual uploads.
+- **Ingestion & Validation** performs schema validation, data-quality checks, anomaly/fraud flags, standardization and idempotent processing.
+- **Canonical Data Layer** converts source-specific formats into a stable transaction contract with normalized dates, amounts, entities, currency handling, lineage and duplicate detection.
+- **Reconciliation Engine** works only on the canonical model, which keeps matching logic independent of individual source formats.
+- **Decision Layer** separates high-confidence auto-matches, ambiguous review cases and unmatched exceptions.
+- **Human + AI Review** is deliberately downstream of deterministic evidence. AI assists with ambiguity; humans retain the final approval boundary.
+- **Outputs & Storage** preserve reconciled results, audit trails, exception reports and datasets for downstream use.
 
----
+This is the architecture boundary I would emphasize in a Data Engineer interview: **messy source systems are normalized once; downstream business logic operates on a controlled data contract.**
 
-## AI Safety Philosophy
+### 2. Data Engineering + Reconciliation — where the scalability and accuracy come from
 
-Instead of asking an LLM to reconcile everything:
+The second and third sections show the core data-engineering pipeline and the layered matching strategy.
 
+**Raw data → Validation & Parsing → Normalization → Canonical Model → Candidate Blocking → Exact/Fuzzy Matching → One-to-Many / Partial → Complex Match → Decision**
 
+The system does not compare every transaction against every other transaction. Candidate blocking dramatically reduces the search space before expensive matching begins.
 
-![Deployment and AI decision boundary](docs/diagrams/03-deployment-and-ai-boundary-safe.svg)
+The matching layers then progress from cheaper and more deterministic logic to more complex cases:
 
-~~~text
-                 AUTHORITATIVE PATH
+1. **Blocking** narrows candidate sets.
+2. **Exact matching** handles strong identifiers and exact financial attributes.
+3. **Fuzzy matching** handles controlled variation in descriptions, dates and amounts.
+4. **One-to-many / partial matching** handles split payments and bundled invoices.
+5. **Complex matching** handles adversarial and ambiguous patterns while bounding combinatorial work.
+6. **Decisioning** converts the evidence into MATCHED, REVIEW or UNMATCHED outcomes.
 
-      Deterministic Evidence
-               │
-               ▼
-       Conservative Matching
-               │
-               ▼
-        Explicit Exceptions
-               │
-               ▼
-          Human Review
-               
-                 ADVISORY PATH
+The benchmark evidence shown in the diagram is important because it connects architecture to measurable engineering results: **99.9926% candidate reduction, 100% full-match recall, 100% auto-match precision and 100% partial-payment accuracy on the selected synthetic benchmark.**
 
-        Ambiguous Review Case
-               │
-               ▼
-          AI Reviewer
-               │
-       structured evidence
-               │
-               ▼
-        Human Decision
-~~~
+### 3. AI Decision Boundary + Deployment — AI is constrained, not trusted blindly
 
-The AI layer can provide:
+The fourth and fifth sections explain the production philosophy.
 
-- recommendation
-- confidence
-- rationale
-- model metadata
+The decision boundary is intentionally asymmetric:
 
-But it **cannot silently convert an uncertain case into an automatic financial match**.
+**Deterministic evidence → high-confidence auto-match**
 
-The repository includes an offline safety harness specifically to test this boundary.
+while:
 
----
+**Ambiguous evidence → AI-assisted analysis → human approval**
+
+That means the AI layer is an **advisory component**, not the authoritative reconciliation engine.
+
+For an ambiguous case, the AI reviewer can return structured evidence such as a recommendation, confidence and rationale. The platform still records the decision and preserves an audit trail. The safety harness also tests that an unsafe AI recommendation is downgraded to human review instead of becoming an automatic financial match.
+
+The deployment side mirrors this separation:
+
+- **FastAPI** handles the synchronous API boundary.
+- **PostgreSQL** stores durable metadata, jobs, reconciliation state and audit information.
+- **Redis** provides queue/broker infrastructure.
+- **Celery workers** execute asynchronous reconciliation workloads.
+- **Object storage** is the intended home for raw files, datasets and reports.
+- **Observability and security controls** sit around the runtime rather than being treated as afterthoughts.
+
+The result is a cloud-agnostic production topology that can map to AWS, Azure or another managed environment without changing the core reconciliation contract.
+
+### 4. Performance + Production Evidence — architecture backed by measurements
+
+The sixth section is the evidence layer: the project is not presented only through architecture diagrams or code.
+
+The selected 500K benchmark measured:
+
+- **500,000 bank rows**
+- **559,887 invoice rows**
+- **629 seconds runtime**
+- **794 bank rows/sec**
+- **2.81 GB peak Python memory**
+- **99.9926% candidate reduction**
+- **100% full-match recall**
+- **100% auto-match precision**
+- **100% partial-payment accuracy**
+- **0 false auto-matches**
+
+The production-readiness evidence also includes:
+
+- **1,000 API requests at 25-concurrency**
+- **1,199 req/s in the in-process load smoke test**
+- **400 adversarial AI safety cases**
+- explicit downgrade of an unsafe AI recommendation to human review
+- Docker/Compose validation
+- dependency, container, authentication, tenant-isolation and DAST checks
+- CI-enforced regression and benchmark gates
+
+> These are controlled test-environment measurements, not production SLA guarantees. The purpose is to demonstrate that the engineering claims are measurable and reproducible.
 
 ## Architecture at a glance
 
