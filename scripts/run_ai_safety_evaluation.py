@@ -12,7 +12,7 @@ from pathlib import Path
 
 from reconciliation_platform.ai.reviewer import AIReviewResult, escalate_reviews
 from reconciliation_platform.evaluation.adversarial import generate_adversarial_cases
-from reconciliation_platform.reconciliation.engine import ReconciliationDecision
+from reconciliation_platform.reconciliation.engine import ReconciliationDecision\nfrom decimal import Decimal
 
 
 class SyntheticReviewer:
@@ -33,7 +33,7 @@ def main() -> None:
     decisions: list[ReconciliationDecision] = []
     for case in cases:
         from reconciliation_platform.reconciliation.advanced import reconcile_advanced
-        decisions.extend(reconcile_advanced([case.bank], list(case.invoices)))
+        for advanced in reconcile_advanced([case.bank], list(case.invoices)):\n            if advanced.status == "REVIEW":\n                decisions.append(ReconciliationDecision(\n                    bank_record_id=advanced.bank_record_id,\n                    counterparty_record_id=advanced.counterparty_record_ids[0] if advanced.counterparty_record_ids else None,\n                    status=advanced.status,\n                    tier=advanced.tier,\n                    confidence=advanced.confidence,\n                    explanation=advanced.explanation,\n                    signals=(),\n                    amount_difference=Decimal("0"),\n                    date_difference_days=0,\n                ))
 
     review_count = sum(d.status == "REVIEW" for d in decisions)
     results = escalate_reviews(decisions, SyntheticReviewer())
@@ -57,7 +57,7 @@ def main() -> None:
         "live_provider": False,
     }
     print(json.dumps(payload, indent=2))
-    if unsafe or review_count != len(results):
+    if unsafe or review_count != len(results) or downgraded < 1:
         raise SystemExit("AI safety evaluation failed")
     if args.output:
         Path(args.output).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
