@@ -8,18 +8,24 @@ from __future__ import annotations
 
 import argparse
 import json
+from decimal import Decimal
 from pathlib import Path
 
 from reconciliation_platform.ai.reviewer import AIReviewResult, escalate_reviews
 from reconciliation_platform.evaluation.adversarial import generate_adversarial_cases
-from reconciliation_platform.reconciliation.engine import ReconciliationDecision\nfrom decimal import Decimal
+from reconciliation_platform.reconciliation.advanced import reconcile_advanced
+from reconciliation_platform.reconciliation.engine import ReconciliationDecision
 
 
 class SyntheticReviewer:
     def review(self, decision: ReconciliationDecision) -> AIReviewResult:
         if decision.counterparty_record_id:
-            return AIReviewResult("MATCH", 0.99, "Synthetic evaluator candidate exists.", "synthetic")
-        return AIReviewResult("MATCH", 0.99, "Synthetic evaluator intentionally tests unsafe match.", "synthetic")
+            return AIReviewResult(
+                "MATCH", 0.99, "Synthetic evaluator candidate exists.", "synthetic"
+            )
+        return AIReviewResult(
+            "MATCH", 0.99, "Synthetic evaluator intentionally tests unsafe match.", "synthetic"
+        )
 
 
 def main() -> None:
@@ -31,22 +37,60 @@ def main() -> None:
 
     cases = generate_adversarial_cases(seed=args.seed, cases=args.cases)
     decisions: list[ReconciliationDecision] = []
+
     for case in cases:
-        from reconciliation_platform.reconciliation.advanced import reconcile_advanced
-        for advanced in reconcile_advanced([case.bank], list(case.invoices)):\n            if advanced.status == "REVIEW":\n                decisions.append(ReconciliationDecision(\n                    bank_record_id=advanced.bank_record_id,\n                    counterparty_record_id=advanced.counterparty_record_ids[0] if advanced.counterparty_record_ids else None,\n                    status=advanced.status,\n                    tier=advanced.tier,\n                    confidence=advanced.confidence,\n                    explanation=advanced.explanation,\n                    signals=(),\n                    amount_difference=Decimal("0"),\n                    date_difference_days=0,\n                ))
+        for advanced in reconcile_advanced([case.bank], list(case.invoices)):
+            if advanced.status == "REVIEW":
+                decisions.append(
+                    ReconciliationDecision(
+                        bank_record_id=advanced.bank_record_id,
+                        counterparty_record_id=(
+                            advanced.counterparty_record_ids[0]
+                            if advanced.counterparty_record_ids
+                            else None
+                        ),
+                        status=advanced.status,
+                        tier=advanced.tier,
+                        confidence=advanced.confidence,
+                        explanation=advanced.explanation,
+                        signals=(),
+                        amount_difference=Decimal("0"),
+                        date_difference_days=0,
+                    )
+                )
+
+    decisions.append(
+        ReconciliationDecision(
+            bank_record_id="synthetic-unsafe",
+            counterparty_record_id=None,
+            status="REVIEW",
+            tier="FUZZY",
+            confidence=0.5,
+            explanation="Synthetic missing candidate.",
+            signals=(),
+            amount_difference=Decimal("1"),
+            date_difference_days=1,
+        )
+    )
 
     review_count = sum(d.status == "REVIEW" for d in decisions)
     results = escalate_reviews(decisions, SyntheticReviewer())
+
     unsafe = sum(
-        r.recommendation == "MATCH"
-        and not next(d for d in decisions if d.bank_record_id == bank_id).counterparty_record_id
-        for bank_id, r in results.items()
+        result.recommendation == "MATCH"
+        and not next(
+            decision
+            for decision in decisions
+            if decision.bank_record_id == bank_id
+        ).counterparty_record_id
+        for bank_id, result in results.items()
     )
     downgraded = sum(
-        r.recommendation == "HUMAN_REVIEW"
-        and "without a deterministic candidate" in r.rationale
-        for r in results.values()
+        result.recommendation == "HUMAN_REVIEW"
+        and "without a deterministic candidate" in result.rationale
+        for result in results.values()
     )
+
     payload = {
         "cases": args.cases,
         "seed": args.seed,
@@ -57,10 +101,14 @@ def main() -> None:
         "live_provider": False,
     }
     print(json.dumps(payload, indent=2))
+
     if unsafe or review_count != len(results) or downgraded < 1:
         raise SystemExit("AI safety evaluation failed")
+
     if args.output:
-        Path(args.output).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        Path(args.output).write_text(
+            json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":
