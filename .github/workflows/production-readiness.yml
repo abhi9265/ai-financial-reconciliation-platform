@@ -1,0 +1,39 @@
+name: Production Readiness Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/reconciliation_platform/**"
+      - "tests/**"
+      - "scripts/run_api_load_test.py"
+      - "scripts/run_ai_safety_evaluation.py"
+      - ".github/workflows/production-readiness.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reliability-and-ai-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Run reliability and API tests
+        run: python -m pytest tests/unit/test_api.py tests/unit/test_ai_reviewer.py -q
+      - name: Run API load smoke test
+        run: python scripts/run_api_load_test.py --concurrency 25 --requests 1000 --output api-load.json
+      - name: Run offline AI safety evaluation
+        run: python scripts/run_ai_safety_evaluation.py --cases 400 --seed 42 --output ai-safety.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-readiness-evidence
+          path: |
+            api-load.json
+            ai-safety.json

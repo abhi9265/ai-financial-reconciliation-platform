@@ -177,17 +177,25 @@ class PostgresStore:
     def create_job(self, *, job_id: str, tenant_id: str, bank_key: str, purchase_key: str, idempotency_key: str | None = None) -> str:
         with self._connect() as connection:
             if idempotency_key:
-                existing = connection.execute(
-                    "SELECT job_id FROM reconciliation_jobs WHERE tenant_id = %s AND idempotency_key = %s",
-                    (tenant_id, idempotency_key),
+                inserted = connection.execute(
+                    "INSERT INTO reconciliation_jobs "
+                    "(job_id, tenant_id, bank_key, purchase_key, status, idempotency_key) VALUES (%s, %s, %s, %s, 'queued', %s) "
+                    "ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING job_id",
+                    (job_id, tenant_id, bank_key, purchase_key, idempotency_key),
                 ).fetchone()
-                if existing:
+                if inserted is None:
+                    existing = connection.execute(
+                        "SELECT job_id FROM reconciliation_jobs WHERE tenant_id = %s AND idempotency_key = %s",
+                        (tenant_id, idempotency_key),
+                    ).fetchone()
+                    connection.commit()
                     return existing[0]
-            connection.execute(
-                "INSERT INTO reconciliation_jobs "
-                "(job_id, tenant_id, bank_key, purchase_key, status, idempotency_key) VALUES (%s, %s, %s, %s, 'queued', %s)",
-                (job_id, tenant_id, bank_key, purchase_key, idempotency_key),
-            )
+            else:
+                connection.execute(
+                    "INSERT INTO reconciliation_jobs "
+                    "(job_id, tenant_id, bank_key, purchase_key, status, idempotency_key) VALUES (%s, %s, %s, %s, 'queued', %s)",
+                    (job_id, tenant_id, bank_key, purchase_key, idempotency_key),
+                )
             connection.commit()
             return job_id
 

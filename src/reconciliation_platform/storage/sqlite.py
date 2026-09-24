@@ -175,6 +175,11 @@ class SQLiteStore:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(reconciliation_jobs)")}
             if "idempotency_key" not in columns:
                 connection.execute("ALTER TABLE reconciliation_jobs ADD COLUMN idempotency_key TEXT")
+            connection.execute(
+                "INSERT OR IGNORE INTO reconciliation_jobs "
+                "(job_id, tenant_id, bank_key, purchase_key, status, idempotency_key) VALUES (?, ?, ?, ?, 'queued', ?)",
+                (job_id, tenant_id, bank_key, purchase_key, idempotency_key),
+            )
             if idempotency_key:
                 existing = connection.execute(
                     "SELECT job_id FROM reconciliation_jobs WHERE tenant_id = ? AND idempotency_key = ?",
@@ -182,11 +187,6 @@ class SQLiteStore:
                 ).fetchone()
                 if existing:
                     return existing[0]
-            connection.execute(
-                "INSERT INTO reconciliation_jobs "
-                "(job_id, tenant_id, bank_key, purchase_key, status, idempotency_key) VALUES (?, ?, ?, ?, 'queued', ?)",
-                (job_id, tenant_id, bank_key, purchase_key, idempotency_key),
-            )
             return job_id
 
     def get_job(self, job_id: str, *, tenant_id: str) -> dict | None:

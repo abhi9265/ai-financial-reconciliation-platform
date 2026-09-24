@@ -168,3 +168,37 @@ def test_rate_limiter_blocks_excess_requests():
     assert limiter.allow("tenant") is True
     assert limiter.allow("tenant") is False
     assert limiter.allow("other-tenant") is True
+
+
+def test_async_reconciliation_idempotency_replays_existing_job(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "jobs.db"))
+    from pathlib import Path
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    headers = {"X-Tenant-ID": "idem_01", "Idempotency-Key": "same-request-001"}
+    files = {"bank_file": ("bank.csv", bank, "text/csv"), "purchase_file": ("purchase.csv", purchase, "text/csv")}
+    first = client.post("/v1/reconcile/async", headers=headers, files=files)
+    second = client.post("/v1/reconcile/async", headers=headers, files=files)
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert second.json()["job_id"] == first.json()["job_id"]
+    assert second.json()["idempotent_replay"] is True
+
+
+def test_async_idempotency_is_tenant_scoped(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "jobs.db"))
+    from pathlib import Path
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    files = {"bank_file": ("bank.csv", bank, "text/csv"), "purchase_file": ("purchase.csv", purchase, "text/csv")}
+    first = client.post("/v1/reconcile/async", headers={"X-Tenant-ID": "tenant_a", "Idempotency-Key": "shared-key"}, files=files)
+    second = client.post("/v1/reconcile/async", headers={"X-Tenant-ID": "tenant_b", "Idempotency-Key": "shared-key"}, files=files)
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert first.json()["job_id"] != second.json()["job_id"]
