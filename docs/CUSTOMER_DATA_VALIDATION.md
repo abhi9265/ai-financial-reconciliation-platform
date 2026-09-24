@@ -30,6 +30,8 @@ The suite also validates malformed-record rejection, stable canonical hashing ac
 
 ## CI gate
 
+The suite is intentionally deterministic so a failed case is reproducible from the seed.
+
 The customer-data-validation workflow runs the suite on relevant pull requests and uploads the machine-readable JSON result as an artifact.
 
 ## Scope

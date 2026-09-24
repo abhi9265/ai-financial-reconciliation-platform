@@ -1,6 +1,7 @@
 """Customer-shaped financial data validation suite."""
 from __future__ import annotations
-import argparse, json
+import argparse
+import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -20,7 +21,7 @@ VENDORS = (
 )
 
 def make_tx(source, rid, amount, day, name, tx_type, *, ref=None, invoice=None,
-            file_name="bank.csv", row=1, description=None, gstin=None):
+            file_name="bank.csv", row=1, description=None, gstin=None, currency="INR"):
     amount = Decimal(str(amount))
     debit_types = {TransactionType.PAYMENT, TransactionType.PURCHASE}
     direction = AmountDirection.DEBIT if tx_type in debit_types else AmountDirection.CREDIT
@@ -58,7 +59,7 @@ def build_cases(seed=42, per_scenario=40):
                        description=f"NEFT/{name}/INV-{n:05d}")
         cases.append(("exact_reference", bank, (inv,), "MATCHED", "ONE_TO_ONE", (inv.source_record_id,)))
 
-        inv = make_tx(SourceSystem.PURCHASE_REGISTER, f"{base}-FZ-INV", amount+Decimal("7.50"),
+        inv = make_tx(SourceSystem.PURCHASE_REGISTER, f"{base}-FZ-INV", amount-Decimal("7.50"),
                       day, name, TransactionType.PURCHASE, ref=f"FZ-{n:05d}", invoice=f"FZ-{n:05d}",
                       file_name="Tally_Purchase_Register.xlsx", row=n+100)
         bank = make_tx(SourceSystem.BANK, f"{base}-FZ-BANK", amount, day, name,
@@ -147,7 +148,7 @@ def validate_contract(sample):
 
 def run(per_scenario=40, seed=42, output="customer-data-validation.json"):
     cases = build_cases(seed, per_scenario)
-    decisions = reconcile_advanced([c[1] for c in cases], [i for c in cases for i in c[2]])
+    decisions = [reconcile_advanced([case[1]], list(case[2]))[0] for case in cases]
     failures = []
     scenario_counts = {}
     passed = 0
@@ -172,7 +173,8 @@ def run(per_scenario=40, seed=42, output="customer-data-validation.json"):
     }
     rendered = json.dumps(result, indent=2, sort_keys=True)
     print(rendered)
-    if output: Path(output).write_text(rendered + "\n", encoding="utf-8")
+    if output:
+        Path(output).write_text(rendered + "\n", encoding="utf-8")
     if failures or contract["invalid_records_rejected"] != 2 or not contract["record_hash_stable_across_ingestion_metadata"] or not contract["lineage_fields_present"]:
         raise SystemExit(1)
 
