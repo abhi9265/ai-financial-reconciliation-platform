@@ -1,0 +1,31 @@
+name: 500K Scale Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/reconciliation_platform/reconciliation/**"
+      - "scripts/run_scale_benchmark.py"
+      - ".github/workflows/scale-500k.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  scale-500k:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Run 500K deterministic scale benchmark
+        run: python scripts/run_scale_benchmark.py --cases 500000 --seed 42 --output scale-500k.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-500k
+          path: scale-500k.json
