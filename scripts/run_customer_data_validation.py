@@ -59,7 +59,7 @@ def build_cases(seed=42, per_scenario=40):
                        description=f"NEFT/{name}/INV-{n:05d}")
         cases.append(("exact_reference", bank, (inv,), "MATCHED", "ONE_TO_ONE", (inv.source_record_id,)))
 
-        inv = make_tx(SourceSystem.PURCHASE_REGISTER, f"{base}-FZ-INV", amount+Decimal("7.50"),
+        inv = make_tx(SourceSystem.PURCHASE_REGISTER, f"{base}-FZ-INV", amount-Decimal("7.50"),
                       day, name, TransactionType.PURCHASE, ref=f"FZ-{n:05d}", invoice=f"FZ-{n:05d}",
                       file_name="Tally_Purchase_Register.xlsx", row=n+100)
         bank = make_tx(SourceSystem.BANK, f"{base}-FZ-BANK", amount, day, name,
