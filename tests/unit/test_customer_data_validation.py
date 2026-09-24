@@ -4,10 +4,10 @@ from reconciliation_platform.reconciliation.advanced import reconcile_advanced
 
 def test_customer_shaped_suite_covers_expected_decisions():
     cases = build_cases(seed=42, per_scenario=40)
-    decisions = reconcile_advanced(
-        [case[1] for case in cases],
-        [invoice for case in cases for invoice in case[2]],
-    )
+    decisions = [
+        reconcile_advanced([case[1]], list(case[2]))[0]
+        for case in cases
+    ]
     assert len(cases) == 320
     for case, decision in zip(cases, decisions, strict=True):
         _, _, _, expected_status, expected_relationship, expected_ids = case
