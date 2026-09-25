@@ -240,6 +240,10 @@ The project now includes an AWS staging deployment package under **[infra/aws/st
 
 The repository claims **deployable staging infrastructure**, not a live AWS URL. A real staging deployment requires an AWS account, ACM certificate, DNS zone and operator credentials.
 
+### Phase 3 — Production observability
+
+The application now exposes Prometheus metrics, request-correlated structured logs, dependency-aware readiness checks, an optional local Prometheus/Grafana stack, and AWS CloudWatch reliability alarms. See **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)**.
+
 
 ---
 
