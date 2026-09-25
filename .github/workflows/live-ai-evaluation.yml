@@ -1,0 +1,53 @@
+name: live-ai-evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: Number of adversarial cases to evaluate
+        required: true
+        default: "25"
+        type: string
+      model:
+        description: OpenAI model identifier
+        required: true
+        default: gpt-5.6-luna
+        type: string
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q tests/unit/test_openai_reviewer.py
+
+  live:
+    if: ${{ secrets.OPENAI_API_KEY != '' }}
+    needs: contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e ".[dev]"
+      - name: Run live AI evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_MODEL: ${{ inputs.model }}
+          AI_PROVIDER: openai
+          AI_TIMEOUT_SECONDS: "20"
+        run: |
+          python scripts/run_live_ai_evaluation.py \
+            --cases "${{ inputs.cases }}" \
+            --seed 42 \
+            --output reports/live-ai-evaluation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-ai-evaluation
+          path: reports/live-ai-evaluation.json
