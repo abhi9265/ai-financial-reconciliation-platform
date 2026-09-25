@@ -5,6 +5,8 @@ import secrets
 import tempfile
 import uuid
 import time
+
+from fastapi.responses import Response
 from fastapi import BackgroundTasks
 from pathlib import Path
 
@@ -18,7 +20,7 @@ from reconciliation_platform.decisioning.review import build_review_cases
 from reconciliation_platform.evaluation.metrics import evaluate_against_ground_truth, load_ground_truth
 from reconciliation_platform.observability import configure_logging, log_event
 from reconciliation_platform.audit import read_audit_events, record_audit_event
-from reconciliation_platform.metrics import record_reconciliation, snapshot
+from reconciliation_platform.metrics import observe_http, prometheus_payload, record_reconciliation, snapshot, set_review_backlog
 from reconciliation_platform.pipeline import run_pipeline, summarize
 from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
@@ -34,12 +36,20 @@ app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
 async def request_context(request, call_next):
     request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
     started = time.perf_counter()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration = time.perf_counter() - started
+        observe_http(request.method, request.url.path, 500, duration)
+        log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=500, duration_ms=round(duration * 1000, 2))
+        raise
+    duration = time.perf_counter() - started
+    observe_http(request.method, request.url.path, response.status_code, duration)
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
-    log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round((time.perf_counter()-started)*1000,2))
+    log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round(duration * 1000, 2))
     return response
 
 
@@ -158,7 +168,8 @@ async def reconcile_uploaded_files(
         )
     summary["tenant_id"] = tenant_id
     summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
-    record_reconciliation(summary)
+    record_reconciliation(summary, mode="sync")
+    set_review_backlog(store.review_case_count(tenant_id=tenant_id))
     record_audit_event("reconciliation.completed", tenant_id=tenant_id, mode="sync", summary=summary)
     log_event("tenant_reconciliation_completed", **summary)
     return summary
@@ -196,7 +207,8 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             )
             summary["tenant_id"] = tenant_id
             summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
-        record_reconciliation(summary)
+        record_reconciliation(summary, mode="async")
+        set_review_backlog(store.review_case_count(tenant_id=tenant_id))
         record_audit_event(
             "reconciliation.job.completed",
             tenant_id=tenant_id,
@@ -208,7 +220,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
         store.update_job(job_id, tenant_id=tenant_id, status="succeeded", result=summary)
         log_event("reconciliation_job_completed", job_id=job_id, tenant_id=tenant_id)
     except Exception as exc:
-        record_reconciliation({}, failed=True)
+        record_reconciliation({}, failed=True, mode="async")
         record_audit_event(
             "reconciliation.job.failed",
             tenant_id=tenant_id,
@@ -300,6 +312,9 @@ def readiness() -> dict[str, str]:
     try:
         store = build_store(settings)
         store.review_case_count()
+        if settings.job_queue == "celery":
+            import redis
+            redis.Redis.from_url(settings.redis_url, socket_connect_timeout=2, socket_timeout=2).ping()
     except Exception as exc:
         raise HTTPException(status_code=503, detail="storage unavailable") from exc
     return {"status": "ready"}
@@ -353,8 +368,13 @@ def reconcile(request: ReconciliationRequest, _: None = Depends(require_api_key)
     return summary
 
 
-@app.get("/metrics")
-def metrics() -> dict[str, int]:
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(content=prometheus_payload(), media_type="text/plain; version=0.0.4")
+
+
+@app.get("/metrics/snapshot", include_in_schema=False)
+def metrics_snapshot() -> dict[str, int]:
     return snapshot()
 
 
