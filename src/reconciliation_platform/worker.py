@@ -4,6 +4,7 @@ from __future__ import annotations
 from celery import Celery
 
 from reconciliation_platform.config import Settings
+from reconciliation_platform.metrics import record_worker_job
 
 settings = Settings.from_env()
 celery_app = Celery("reconciliation_platform", broker=settings.redis_url, backend=settings.redis_url)
@@ -39,5 +40,7 @@ def process_job(self, job_id: str, tenant_id: str, bank_key: str, purchase_key: 
             purchase_key,
             raise_on_error=True,
         )
+        record_worker_job("succeeded")
     except Exception as exc:
+        record_worker_job("failed")
         raise self.retry(exc=exc) from exc
