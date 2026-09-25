@@ -833,6 +833,7 @@ docker compose up --build
 - [Architecture Diagrams](docs/architecture-diagrams.md)
 - [API Examples](docs/api-examples.md)
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
+- [Phase 1 Customer-Shaped Validation Report](reports/customer-shaped-validation-report.md)
 - [Environment Configuration](.env.example)
 - [Source Contracts](data/contracts/source_contracts.json)
 
