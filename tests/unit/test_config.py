@@ -31,3 +31,19 @@ def test_queue_and_rate_limit_settings(monkeypatch):
     assert settings.job_queue == "celery"
     assert settings.redis_url == "redis://localhost:6379/0"
     assert settings.rate_limit_per_minute == 10
+
+
+def test_managed_database_configuration_builds_safe_url(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DATABASE_HOST", "postgres.internal")
+    monkeypatch.setenv("DATABASE_USER", "reconciliation")
+    monkeypatch.setenv("DATABASE_PASSWORD", "secret password/with-specials")
+    monkeypatch.setenv("DATABASE_NAME", "reconciliation")
+    monkeypatch.setenv("DATABASE_PORT", "5432")
+
+    settings = Settings.from_env()
+
+    assert settings.database_url == (
+        "postgresql://reconciliation:secret%20password%2Fwith-specials"
+        "@postgres.internal:5432/reconciliation"
+    )

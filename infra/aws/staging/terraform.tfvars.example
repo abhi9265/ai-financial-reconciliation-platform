@@ -1,0 +1,6 @@
+aws_region = "ap-south-1"
+project_name = "reconciliation-platform"
+staging_domain = "staging.example.com"
+route53_zone_name = "example.com"
+acm_certificate_arn = "arn:aws:acm:ap-south-1:123456789012:certificate/REPLACE"
+container_image = "123456789012.dkr.ecr.ap-south-1.amazonaws.com/reconciliation-platform:REPLACE"

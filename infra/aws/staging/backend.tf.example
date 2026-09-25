@@ -1,0 +1,10 @@
+terraform {
+  # Copy this block into backend.tf after creating the shared state bucket.
+  # Do not commit real backend credentials.
+  # backend "s3" {
+  #   bucket = "REPLACE-with-tf-state-bucket"
+  #   key = "reconciliation-platform/staging/terraform.tfstate"
+  #   region = "ap-south-1"
+  #   encrypt = true
+  # }
+}

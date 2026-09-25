@@ -121,3 +121,12 @@ These are examples, not completed infrastructure.
 ## Current repository claim
 
 > Production-oriented deployment architecture and containerized runtime implemented; external production deployment intentionally not claimed.
+
+
+## Phase 2 staging implementation
+
+The repository now includes an AWS staging implementation under `infra/aws/staging/`. It provisions the managed runtime described above: RDS PostgreSQL, TLS-enabled ElastiCache Redis, S3 object storage, ECS Fargate API/worker services, HTTPS ALB, Secrets Manager, CloudWatch logs and Route 53.
+
+The staging application is configured with `DATABASE_HOST`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME` and `DATABASE_PORT`; the runtime builds a correctly escaped PostgreSQL URL when `DATABASE_URL` is not supplied. This keeps database credentials out of the task definition's plaintext environment.
+
+Staging deployment remains an operator action because it requires an AWS account, certificate, DNS zone and credentials. The infrastructure is validated in CI with Terraform format/validation and a container configuration smoke check.
