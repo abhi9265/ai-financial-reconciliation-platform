@@ -58,7 +58,7 @@ It is a **multi-tenant financial reconciliation platform** that:
 | **API test volume** | **1,000 requests / 25 concurrency** |
 | **AI safety evaluation** | **400 adversarial cases** |
 | **AI safety result** | Unsafe recommendation downgraded to human review |
-| **Deployment** | Docker + Compose + CI validation |
+| **Deployment** | Docker + Compose + AWS staging IaC + CI validation |
 | **Security** | Dependency, container, auth, isolation and DAST checks |
 | **Architecture** | Multi-tenant, async, auditable, cloud-agnostic |
 
@@ -222,6 +222,24 @@ The production-readiness evidence also includes:
 ~~~
 
 For the detailed production architecture, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+### Phase 2 — Deployable staging
+
+The project now includes an AWS staging deployment package under **[infra/aws/staging](infra/aws/staging/)**:
+
+- ECS Fargate API + Celery worker separation
+- managed PostgreSQL and TLS-enabled Redis
+- private data-tier subnets
+- HTTPS Application Load Balancer
+- encrypted/versioned S3 object storage
+- Secrets Manager credentials
+- immutable ECR images with scan-on-push
+- CloudWatch logs
+- Route 53 staging DNS
+- Terraform validation in CI
+
+The repository claims **deployable staging infrastructure**, not a live AWS URL. A real staging deployment requires an AWS account, ACM certificate, DNS zone and operator credentials.
+
 
 ---
 
