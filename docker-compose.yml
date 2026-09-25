@@ -54,6 +54,27 @@ services:
       timeout: 5s
       retries: 10
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["observability"]
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    profiles: ["observability"]
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
   worker:
     build: .
     depends_on:
@@ -77,5 +98,6 @@ services:
       - object_data:/app/data/objects
 
 volumes:
+  grafana_data:
   postgres_data:
   object_data:
