@@ -61,6 +61,10 @@ resource "aws_iam_role_policy" "app" {
 
 resource "aws_ecs_cluster" "staging" {
   name = "${local.name}-staging"
+  setting {
+    name  = "containerInsights"
+    value = "enhanced"
+  }
 }
 resource "aws_ecs_cluster_capacity_providers" "staging" {
   cluster_name = aws_ecs_cluster.staging.name
