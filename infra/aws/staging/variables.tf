@@ -13,6 +13,11 @@ variable "acm_certificate_arn" {
   type = string
   sensitive = true
 }
+variable "route53_zone_name" {
+  type = string
+  description = "Existing public Route 53 hosted zone name, e.g. example.com."
+}
+
 variable "container_image" {
   type = string
 }
