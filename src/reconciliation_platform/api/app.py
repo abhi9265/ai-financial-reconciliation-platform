@@ -18,7 +18,7 @@ from reconciliation_platform.ai.reviewer import NoOpAIReviewer, escalate_reviews
 from reconciliation_platform.config import Settings
 from reconciliation_platform.decisioning.review import build_review_cases
 from reconciliation_platform.evaluation.metrics import evaluate_against_ground_truth, load_ground_truth
-from reconciliation_platform.observability import configure_logging, log_event
+from reconciliation_platform.observability import configure_logging, log_event, set_request_id
 from reconciliation_platform.audit import read_audit_events, record_audit_event
 from reconciliation_platform.metrics import observe_http, prometheus_payload, record_reconciliation, snapshot, set_review_backlog
 from reconciliation_platform.pipeline import run_pipeline, summarize
@@ -34,7 +34,7 @@ app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
 
 @app.middleware("http")
 async def request_context(request, call_next):
-    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    request_id = set_request_id(request.headers.get("X-Request-ID"))
     started = time.perf_counter()
     try:
         response = await call_next(request)
