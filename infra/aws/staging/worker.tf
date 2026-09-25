@@ -74,7 +74,7 @@ resource "aws_ecs_service" "worker" {
 }
 
 data "aws_route53_zone" "staging" {
-  name = var.staging_domain
+  name = var.route53_zone_name
   private_zone = false
 }
 
