@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from urllib.parse import quote
 
 
 @dataclass(frozen=True)
@@ -37,10 +38,21 @@ class Settings:
             if tenant.strip() and key.strip():
                 tenant_api_keys[key.strip()] = tenant.strip()
 
+        database_url = os.getenv("DATABASE_URL") or None
+        if not database_url and os.getenv("DATABASE_HOST"):
+            database_user = os.getenv("DATABASE_USER", "reconciliation")
+            database_password = os.getenv("DATABASE_PASSWORD", "")
+            database_name = os.getenv("DATABASE_NAME", "reconciliation")
+            database_port = os.getenv("DATABASE_PORT", "5432")
+            database_url = (
+                f"postgresql://{quote(database_user, safe='')}:{quote(database_password, safe='')}"
+                f"@{os.environ['DATABASE_HOST']}:{database_port}/{quote(database_name, safe='')}"
+            )
+
         return cls(
             api_key=os.getenv("RECONCILIATION_API_KEY"),
             openai_api_key=os.getenv("OPENAI_API_KEY"),
-            database_url=os.getenv("DATABASE_URL") or None,
+            database_url=database_url,
             database_path=os.getenv("RECONCILIATION_DB", "data/reconciliation.db"),
             ai_provider=provider,
             ai_model=os.getenv("AI_MODEL", "gpt-5.6-luna"),
