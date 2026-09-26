@@ -253,6 +253,23 @@ The application now exposes Prometheus metrics, request-correlated structured lo
 
 ---
 
+## Phase 6 — Product / API polish
+
+The platform now exposes a small product-facing workflow instead of only engineering primitives:
+
+- versioned `/v1` API surface with OpenAPI tags and summaries
+- tenant-scoped review queue with pagination and status filters
+- approve/reject review actions with single-transition protection
+- append-only audit event for human review decisions
+- consistent HTTP/validation error envelopes with request correlation
+- documented reconciliation → job → review workflow
+
+See **[docs/PRODUCT_API.md](docs/PRODUCT_API.md)** for the end-to-end API contract and example workflow.
+
+> The review API records human workflow outcomes; it does not replace or mutate the deterministic reconciliation evidence.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Why |

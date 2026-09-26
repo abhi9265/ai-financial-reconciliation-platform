@@ -1,7 +1,6 @@
 """FastAPI boundary around the reconciliation pipeline."""
 from __future__ import annotations
 
-import secrets
 import tempfile
 import uuid
 import time
@@ -24,12 +23,27 @@ from reconciliation_platform.metrics import observe_http, prometheus_payload, re
 from reconciliation_platform.pipeline import run_pipeline, summarize
 from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
-from reconciliation_platform.ingestion.uploads import build_object_key, validate_tenant_id
+from reconciliation_platform.ingestion.uploads import build_object_key
 from reconciliation_platform.models.canonical_transaction import SourceSystem
 from reconciliation_platform.rate_limit import build_rate_limiter
+from reconciliation_platform.api.errors import install_api_error_handlers
+from reconciliation_platform.api.reviews import router as reviews_router
+from reconciliation_platform.api.app_auth import require_api_key, require_tenant_id
 
 configure_logging()
-app = FastAPI(title="AI Financial Reconciliation Platform", version="0.5.0")
+app = FastAPI(
+    title="AI Financial Reconciliation Platform",
+    version="0.6.0",
+    description="Deterministic-first financial reconciliation with tenant-scoped review workflows.",
+    openapi_tags=[
+        {"name": "reconciliation", "description": "Synchronous and asynchronous reconciliation jobs."},
+        {"name": "reviews", "description": "Human review queue and decision actions."},
+        {"name": "audit", "description": "Tenant-scoped immutable audit history."},
+        {"name": "operations", "description": "Health, readiness and metrics endpoints."},
+    ],
+)
+install_api_error_handlers(app)
+app.include_router(reviews_router)
 
 
 @app.middleware("http")
@@ -58,14 +72,6 @@ class ReconciliationRequest(BaseModel):
     data_dir: str = Field(default="data/synthetic/seed")
 
 
-def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
-    settings = Settings.from_env()
-    if not settings.api_key_required:
-        return
-    if not settings.api_key or not x_api_key or not secrets.compare_digest(x_api_key, settings.api_key):
-        raise HTTPException(status_code=401, detail="invalid or missing API key")
-
-
 def resolve_data_dir(data_dir: str) -> Path:
     requested = Path(data_dir).resolve()
     configured_root = Path("data").resolve()
@@ -88,27 +94,6 @@ def build_ai_reviewer(settings: Settings):
     return NoOpAIReviewer()
 
 
-def require_tenant_id(
-    x_api_key: str | None = Header(default=None),
-    x_tenant_id: str | None = Header(default=None),
-) -> str:
-    settings = Settings.from_env()
-    if not x_tenant_id:
-        raise HTTPException(status_code=400, detail="X-Tenant-ID header is required")
-    if settings.tenant_api_keys:
-        if not x_api_key:
-            raise HTTPException(status_code=401, detail="tenant API key is required")
-        tenant = settings.tenant_api_keys.get(x_api_key)
-        if tenant is None:
-            raise HTTPException(status_code=401, detail="invalid tenant credentials")
-        if tenant != x_tenant_id:
-            raise HTTPException(status_code=403, detail="API key is not authorized for this tenant")
-    try:
-        return validate_tenant_id(x_tenant_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="invalid tenant id") from exc
-
-
 def _validate_upload(upload: UploadFile) -> None:
     if not upload.filename or not upload.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=415, detail="only CSV uploads are supported")
@@ -128,7 +113,7 @@ async def _read_upload_limited(upload: UploadFile, max_bytes: int = 10 * 1024 * 
     return b"".join(chunks)
 
 
-@app.post("/v1/reconcile")
+@app.post("/v1/reconcile", tags=["reconciliation"], summary="Reconcile uploaded financial files")
 async def reconcile_uploaded_files(
     bank_file: UploadFile = File(...),  # noqa: B008
     purchase_file: UploadFile = File(...),  # noqa: B008
@@ -236,7 +221,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             raise
 
 
-@app.post("/v1/reconcile/async", status_code=202)
+@app.post("/v1/reconcile/async", status_code=202, tags=["reconciliation"], summary="Queue an asynchronous reconciliation job")
 async def enqueue_reconciliation(
     background_tasks: BackgroundTasks,
     bank_file: UploadFile = File(...),  # noqa: B008
@@ -289,7 +274,7 @@ async def enqueue_reconciliation(
     }
 
 
-@app.get("/v1/reconcile/jobs/{job_id}")
+@app.get("/v1/reconcile/jobs/{job_id}", tags=["reconciliation"], summary="Get reconciliation job status")
 def reconciliation_job_status(
     job_id: str,
     _: None = Depends(require_api_key),
@@ -302,12 +287,12 @@ def reconciliation_job_status(
     return job
 
 
-@app.get("/health")
+@app.get("/health", tags=["operations"], summary="Liveness check")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/ready")
+@app.get("/ready", tags=["operations"], summary="Readiness check")
 def readiness() -> dict[str, str]:
     settings = Settings.from_env()
     try:
@@ -321,7 +306,7 @@ def readiness() -> dict[str, str]:
     return {"status": "ready"}
 
 
-@app.post("/reconcile")
+@app.post("/reconcile", tags=["reconciliation"], summary="Run the local deterministic demo")
 def reconcile(request: ReconciliationRequest, _: None = Depends(require_api_key)) -> dict:
     settings = Settings.from_env()
     root = resolve_data_dir(request.data_dir)
@@ -369,17 +354,17 @@ def reconcile(request: ReconciliationRequest, _: None = Depends(require_api_key)
     return summary
 
 
-@app.get("/metrics", include_in_schema=False)
+@app.get("/metrics", include_in_schema=False, tags=["operations"])
 def metrics() -> Response:
     return Response(content=prometheus_payload(), media_type="text/plain; version=0.0.4")
 
 
-@app.get("/metrics/snapshot", include_in_schema=False)
+@app.get("/metrics/snapshot", include_in_schema=False, tags=["operations"])
 def metrics_snapshot() -> dict[str, int]:
     return snapshot()
 
 
-@app.get("/v1/audit")
+@app.get("/v1/audit", tags=["audit"], summary="Read tenant audit events")
 def audit_events(
     limit: int = 100,
     _: None = Depends(require_api_key),
@@ -390,7 +375,7 @@ def audit_events(
     return {"tenant_id": tenant_id, "events": read_audit_events(tenant_id=tenant_id, limit=limit)}
 
 
-@app.get("/storage/health")
+@app.get("/storage/health", tags=["operations"], summary="Check persistence availability")
 def storage_health(_: None = Depends(require_api_key)) -> dict[str, int | str]:
     settings = Settings.from_env()
     store = build_store(settings)
