@@ -12,6 +12,7 @@ COPY data ./data
 
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir . \
+    && python -m pip install --no-cache-dir --upgrade "setuptools>=78.1.1" "wheel>=0.46.2" "msgpack>=1.2.1" \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appuser \
     && mkdir -p /app/data/objects /tmp/reconciliation \
     && chown -R appuser:appuser /app /tmp/reconciliation
