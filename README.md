@@ -705,6 +705,10 @@ The repository includes several defense layers:
 - tenant-scoped rate limiting
 - dependency vulnerability auditing
 - container build validation
+- non-root production container
+- Trivy image vulnerability scanning
+- Bandit static security analysis
+- OWASP ZAP baseline DAST
 - secrets excluded from source control
 
 Production secrets are expected to come from the deployment platform's secret-management mechanism.
@@ -796,6 +800,10 @@ Dependency Security Audit
 Docker Production Build
   ↓
 Docker Compose Validation
+  ↓
+Static Security + Trivy Image Scan
+  ↓
+OWASP ZAP DAST
 ```
 
 The repository's production-hardening work has been merged to `main`, including distributed workers, tenant rate limiting, auditability, observability, security checks, and container validation.
@@ -863,6 +871,7 @@ docker compose up --build
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
 - [Phase 1 Customer-Shaped Validation Report](reports/customer-shaped-validation-report.md)
 - [Environment Configuration](.env.example)
+- [Security Hardening & External Validation](docs/SECURITY.md)
 - [Source Contracts](data/contracts/source_contracts.json)
 
 ---
@@ -871,7 +880,7 @@ docker compose up --build
 
 **Engineering status: production-oriented foundation complete; Phase 1 realistic customer-shaped data validation is now implemented and CI-gated.**
 
-The repository has been hardened through automated testing, dependency security checks, container validation, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
+The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
 The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. Phase 1 now includes deterministic customer-shaped validation across bank/Tally/GST-style inputs, partial payments, one-to-many matching, date windows, incompatible financial noise, unmatched exceptions and canonical-contract validation. See [docs/CUSTOMER_DATA_VALIDATION.md](docs/CUSTOMER_DATA_VALIDATION.md). A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
