@@ -210,3 +210,48 @@ def test_async_idempotency_is_tenant_scoped(monkeypatch, tmp_path):
     assert first.status_code == 202
     assert second.status_code == 202
     assert first.json()["job_id"] != second.json()["job_id"]
+
+
+def test_review_queue_and_decision_workflow(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "reviews.db"))
+    from pathlib import Path
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    response = client.post(
+        "/v1/reconcile",
+        headers={"X-Tenant-ID": "review_01"},
+        files={"bank_file": ("bank.csv", bank, "text/csv"), "purchase_file": ("purchase.csv", purchase, "text/csv")},
+    )
+    assert response.status_code == 200
+    queue = client.get("/v1/reviews", headers={"X-Tenant-ID": "review_01"})
+    assert queue.status_code == 200
+    body = queue.json()
+    assert body["total"] == 5
+    assert body["items"][0]["status"] == "open"
+    case_id = body["items"][0]["case_id"]
+    decision = client.post(
+        f"/v1/reviews/{case_id}/decision",
+        headers={"X-Tenant-ID": "review_01"},
+        json={"action": "approve", "note": "Reviewed against source evidence"},
+    )
+    assert decision.status_code == 200
+    assert decision.json()["status"] == "approved"
+    open_queue = client.get("/v1/reviews?status=open", headers={"X-Tenant-ID": "review_01"})
+    assert open_queue.json()["total"] == 4
+    replay = client.post(
+        f"/v1/reviews/{case_id}/decision",
+        headers={"X-Tenant-ID": "review_01"},
+        json={"action": "reject"},
+    )
+    assert replay.status_code == 409
+    assert replay.json()["error"]["code"] == "HTTP_ERROR"
+
+
+def test_validation_errors_use_api_envelope(monkeypatch):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    response = client.get("/v1/reviews?limit=0", headers={"X-Tenant-ID": "review_01"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "HTTP_ERROR"
