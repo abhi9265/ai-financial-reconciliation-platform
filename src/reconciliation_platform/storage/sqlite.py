@@ -160,17 +160,26 @@ class SQLiteStore:
 
     def list_review_cases(self, *, tenant_id: str, status: str, limit: int, offset: int) -> tuple[list[dict], int]:
         with self._connect() as connection:
-            where = "tenant_id = ?"
-            params: list[object] = [tenant_id]
-            if status != "all":
-                where += " AND status = ?"
-                params.append(status)
-            total = int(connection.execute(f"SELECT COUNT(*) FROM review_cases WHERE {where}", params).fetchone()[0])
-            rows = connection.execute(
-                f"SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
-                f"FROM review_cases WHERE {where} ORDER BY created_at ASC, case_id ASC LIMIT ? OFFSET ?",
-                [*params, limit, offset],
-            ).fetchall()
+            if status == "all":
+                total = int(connection.execute(
+                    "SELECT COUNT(*) FROM review_cases WHERE tenant_id = ?", (tenant_id,)
+                ).fetchone()[0])
+                rows = connection.execute(
+                    "SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
+                    "FROM review_cases WHERE tenant_id = ? ORDER BY created_at ASC, case_id ASC LIMIT ? OFFSET ?",
+                    (tenant_id, limit, offset),
+                ).fetchall()
+            else:
+                total = int(connection.execute(
+                    "SELECT COUNT(*) FROM review_cases WHERE tenant_id = ? AND status = ?",
+                    (tenant_id, status),
+                ).fetchone()[0])
+                rows = connection.execute(
+                    "SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
+                    "FROM review_cases WHERE tenant_id = ? AND status = ? "
+                    "ORDER BY created_at ASC, case_id ASC LIMIT ? OFFSET ?",
+                    (tenant_id, status, limit, offset),
+                ).fetchall()
             return [dict(row) for row in rows], total
 
     def get_review_case(self, case_id: str, *, tenant_id: str) -> dict | None:
