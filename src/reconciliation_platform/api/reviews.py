@@ -1,7 +1,7 @@
 """Tenant-scoped human review workflow endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from reconciliation_platform.audit import record_audit_event
