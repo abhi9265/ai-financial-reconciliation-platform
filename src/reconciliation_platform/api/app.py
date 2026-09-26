@@ -72,6 +72,28 @@ class ReconciliationRequest(BaseModel):
     data_dir: str = Field(default="data/synthetic/seed")
 
 
+def resolve_data_dir(data_dir: str) -> Path:
+    requested = Path(data_dir).resolve()
+    configured_root = Path("data").resolve()
+    if not requested.is_dir() or (
+        configured_root not in requested.parents and requested != configured_root
+    ):
+        raise HTTPException(status_code=403, detail="data directory is outside the allowed data root")
+    return requested
+
+
+def build_ai_reviewer(settings: Settings):
+    if settings.ai_provider == "openai":
+        if not settings.openai_api_key:
+            raise HTTPException(status_code=503, detail="AI provider configured without OpenAI API key")
+        return OpenAIReviewer(
+            api_key=settings.openai_api_key,
+            model=settings.ai_model,
+            timeout=settings.ai_timeout_seconds,
+        )
+    return NoOpAIReviewer()
+
+
 def _validate_upload(upload: UploadFile) -> None:
     if not upload.filename or not upload.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=415, detail="only CSV uploads are supported")
