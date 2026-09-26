@@ -18,6 +18,9 @@ RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
               /usr/local/lib/python3.11/site-packages/wheel /usr/local/lib/python3.11/site-packages/wheel-*.dist-info \
               /usr/local/lib/python3.11/site-packages/msgpack /usr/local/lib/python3.11/site-packages/msgpack-*.dist-info \
     && python -m pip check \
+    && test ! -e /usr/local/lib/python3.11/site-packages/setuptools \
+    && test ! -e /usr/local/lib/python3.11/site-packages/msgpack \
+    && test ! -e /usr/local/lib/python3.11/site-packages/wheel \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appuser \
     && mkdir -p /app/data/objects /tmp/reconciliation \
     && chown -R appuser:appuser /app /tmp/reconciliation
