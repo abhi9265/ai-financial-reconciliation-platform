@@ -14,6 +14,14 @@ def test_health_endpoint():
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
+def test_security_response_headers():
+    response = client.get("/health")
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Permissions-Policy"] == "camera=(), microphone=(), geolocation=()"
+    assert response.headers["X-Request-ID"]
+
 
 def test_reconcile_endpoint():
     response = client.post("/reconcile", json={"data_dir": "data/synthetic/seed"})
