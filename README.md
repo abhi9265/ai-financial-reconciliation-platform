@@ -240,6 +240,12 @@ The project now includes an AWS staging deployment package under **[infra/aws/st
 
 The repository claims **deployable staging infrastructure**, not a live AWS URL. A real staging deployment requires an AWS account, ACM certificate, DNS zone and operator credentials.
 
+### Phase 4 — Live AI evaluation
+
+The repository now includes an opt-in live OpenAI evaluation harness for already-escalated REVIEW cases. It measures provider reliability and latency while preserving the deterministic engine as the authoritative financial decision layer. See **[docs/LIVE_AI_EVALUATION.md](docs/LIVE_AI_EVALUATION.md)**.
+
+The live workflow is manually dispatched and requires an operator-provided `OPENAI_API_KEY` secret. Normal CI never calls an external model.
+
 ### Phase 3 — Production observability
 
 The application now exposes Prometheus metrics, request-correlated structured logs, dependency-aware readiness checks, an optional local Prometheus/Grafana stack, and AWS CloudWatch reliability alarms. See **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)**.

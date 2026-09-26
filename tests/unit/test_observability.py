@@ -9,7 +9,7 @@ from reconciliation_platform.metrics import (
     set_review_backlog,
     snapshot,
 )
-from reconciliation_platform.observability import get_request_id, log_event, set_request_id
+from reconciliation_platform.observability import get_request_id, set_request_id
 
 
 def test_prometheus_metrics_and_snapshot():

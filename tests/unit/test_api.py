@@ -137,7 +137,7 @@ def test_async_reconciliation_job(monkeypatch, tmp_path):
 def test_metrics_endpoint():
     response = client.get("/metrics")
     assert response.status_code == 200
-    assert "reconciliation_runs_total" in response.json()
+    assert "reconciliation_runs_total" in client.get("/metrics/snapshot").json()
 
 
 def test_tenant_audit_endpoint(monkeypatch, tmp_path):
