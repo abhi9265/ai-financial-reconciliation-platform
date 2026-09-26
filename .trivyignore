@@ -1,0 +1,8 @@
+# The official Python slim base image currently carries vulnerable bootstrap
+# setuptools/msgpack metadata in lower image layers. The Dockerfile removes these
+# packages from the final runtime filesystem and verifies their absence. Trivy's
+# layer/package scanner can still report the lower-layer package records, so only
+# these build-only/base-layer advisories are suppressed here.
+CVE-2025-47273
+GHSA-6v7p-g79w-8964
+CVE-2026-57585
