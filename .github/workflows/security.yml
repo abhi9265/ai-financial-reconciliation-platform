@@ -87,6 +87,7 @@ jobs:
       - name: Run OWASP ZAP baseline scan
         run: |
           mkdir -p reports
+          chmod 777 reports
           docker run --rm             --add-host=host.docker.internal:host-gateway             -v "$PWD/reports:/zap/wrk:rw"             ghcr.io/zaproxy/zaproxy:stable             zap-baseline.py             -t http://host.docker.internal:8000             -J zap-report.json             -r zap-report.html             -I
       - name: Fail on high-risk ZAP findings
         run: |
