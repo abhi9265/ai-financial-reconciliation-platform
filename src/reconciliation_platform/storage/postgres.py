@@ -197,7 +197,7 @@ class PostgresStore:
             if row is None:
                 return None
             keys = ["case_id", "record_id", "candidate_record_id", "reason", "confidence", "created_at", "status", "resolved_at", "resolution_note"]
-            return dict(zip(keys, row))
+            return dict(zip(keys, row, strict=True))
 
     def resolve_review_case(self, case_id: str, *, tenant_id: str, status: str, note: str | None) -> bool:
         from datetime import datetime, timezone
