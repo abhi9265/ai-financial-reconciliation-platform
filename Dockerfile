@@ -10,7 +10,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 COPY data ./data
 
-RUN python -m pip install --no-cache-dir --upgrade pip \
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir . \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appuser \
     && mkdir -p /app/data/objects /tmp/reconciliation \
