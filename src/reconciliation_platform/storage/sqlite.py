@@ -49,19 +49,20 @@ class SQLiteStore:
                     source_record_id TEXT NOT NULL,
                     record_hash TEXT NOT NULL,
                     batch_id TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'open',
-                    resolved_at TEXT,
-                    resolution_note TEXT
+                    created_at TEXT NOT NULL
                 );
 
-                CREATE TABLE IF NOT EXISTS review_cases (\n                    tenant_id TEXT NOT NULL DEFAULT 'default',
+                CREATE TABLE IF NOT EXISTS review_cases (
+                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     case_id TEXT PRIMARY KEY,
                     record_id TEXT NOT NULL,
                     candidate_record_id TEXT,
                     reason TEXT NOT NULL,
                     confidence REAL NOT NULL,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    resolved_at TEXT,
+                    resolution_note TEXT
                 );
                 """
             )
