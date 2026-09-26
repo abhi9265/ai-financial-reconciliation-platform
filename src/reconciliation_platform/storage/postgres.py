@@ -62,7 +62,10 @@ class PostgresStore:
                     candidate_record_id TEXT,
                     reason TEXT NOT NULL,
                     confidence DOUBLE PRECISION NOT NULL,
-                    created_at TIMESTAMPTZ NOT NULL
+                    created_at TIMESTAMPTZ NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    resolved_at TIMESTAMPTZ,
+                    resolution_note TEXT
                 );
                 """
             )
@@ -76,6 +79,12 @@ class PostgresStore:
                 connection.execute(
                     "ALTER TABLE review_cases ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'"
                 )
+            if "status" not in columns:
+                connection.execute("ALTER TABLE review_cases ADD COLUMN status TEXT NOT NULL DEFAULT 'open'")
+            if "resolved_at" not in columns:
+                connection.execute("ALTER TABLE review_cases ADD COLUMN resolved_at TIMESTAMPTZ")
+            if "resolution_note" not in columns:
+                connection.execute("ALTER TABLE review_cases ADD COLUMN resolution_note TEXT")
             connection.commit()
 
     def register_batch(
@@ -144,8 +153,8 @@ class PostgresStore:
                 cursor = connection.execute(
                     """
                     INSERT INTO review_cases
-                    (case_id, tenant_id, record_id, candidate_record_id, reason, confidence, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (case_id, tenant_id, record_id, candidate_record_id, reason, confidence, created_at, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'open')
                     ON CONFLICT DO NOTHING
                     """,
                     (
@@ -161,6 +170,45 @@ class PostgresStore:
                 inserted += cursor.rowcount
             connection.commit()
         return inserted
+
+    def list_review_cases(self, *, tenant_id: str, status: str, limit: int, offset: int) -> tuple[list[dict], int]:
+        with self._connect() as connection:
+            where = "tenant_id = %s"
+            params: list[object] = [tenant_id]
+            if status != "all":
+                where += " AND status = %s"
+                params.append(status)
+            total = int(connection.execute(f"SELECT COUNT(*) FROM review_cases WHERE {where}", params).fetchone()[0])
+            rows = connection.execute(
+                f"SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
+                f"FROM review_cases WHERE {where} ORDER BY created_at ASC, case_id ASC LIMIT %s OFFSET %s",
+                [*params, limit, offset],
+            ).fetchall()
+            keys = ["case_id", "record_id", "candidate_record_id", "reason", "confidence", "created_at", "status", "resolved_at", "resolution_note"]
+            return [dict(zip(keys, row)) for row in rows], total
+
+    def get_review_case(self, case_id: str, *, tenant_id: str) -> dict | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
+                "FROM review_cases WHERE case_id = %s AND tenant_id = %s",
+                (case_id, tenant_id),
+            ).fetchone()
+            if row is None:
+                return None
+            keys = ["case_id", "record_id", "candidate_record_id", "reason", "confidence", "created_at", "status", "resolved_at", "resolution_note"]
+            return dict(zip(keys, row))
+
+    def resolve_review_case(self, case_id: str, *, tenant_id: str, status: str, note: str | None) -> bool:
+        from datetime import datetime, timezone
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE review_cases SET status = %s, resolved_at = %s, resolution_note = %s "
+                "WHERE case_id = %s AND tenant_id = %s AND status = 'open'",
+                (status, datetime.now(timezone.utc), note, case_id, tenant_id),
+            )
+            connection.commit()
+            return cursor.rowcount == 1
 
     def review_case_count(self, *, tenant_id: str | None = None) -> int:
         with self._connect() as connection:
