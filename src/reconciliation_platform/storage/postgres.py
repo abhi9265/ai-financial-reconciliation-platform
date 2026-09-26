@@ -173,17 +173,26 @@ class PostgresStore:
 
     def list_review_cases(self, *, tenant_id: str, status: str, limit: int, offset: int) -> tuple[list[dict], int]:
         with self._connect() as connection:
-            where = "tenant_id = %s"
-            params: list[object] = [tenant_id]
-            if status != "all":
-                where += " AND status = %s"
-                params.append(status)
-            total = int(connection.execute(f"SELECT COUNT(*) FROM review_cases WHERE {where}", params).fetchone()[0])
-            rows = connection.execute(
-                f"SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
-                f"FROM review_cases WHERE {where} ORDER BY created_at ASC, case_id ASC LIMIT %s OFFSET %s",
-                [*params, limit, offset],
-            ).fetchall()
+            if status == "all":
+                total = int(connection.execute(
+                    "SELECT COUNT(*) FROM review_cases WHERE tenant_id = %s", (tenant_id,)
+                ).fetchone()[0])
+                rows = connection.execute(
+                    "SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
+                    "FROM review_cases WHERE tenant_id = %s ORDER BY created_at ASC, case_id ASC LIMIT %s OFFSET %s",
+                    (tenant_id, limit, offset),
+                ).fetchall()
+            else:
+                total = int(connection.execute(
+                    "SELECT COUNT(*) FROM review_cases WHERE tenant_id = %s AND status = %s",
+                    (tenant_id, status),
+                ).fetchone()[0])
+                rows = connection.execute(
+                    "SELECT case_id, record_id, candidate_record_id, reason, confidence, created_at, status, resolved_at, resolution_note "
+                    "FROM review_cases WHERE tenant_id = %s AND status = %s "
+                    "ORDER BY created_at ASC, case_id ASC LIMIT %s OFFSET %s",
+                    (tenant_id, status, limit, offset),
+                ).fetchall()
             keys = ["case_id", "record_id", "candidate_record_id", "reason", "confidence", "created_at", "status", "resolved_at", "resolution_note"]
             return [dict(zip(keys, row, strict=True)) for row in rows], total
 
