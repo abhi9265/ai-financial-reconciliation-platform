@@ -185,7 +185,7 @@ class PostgresStore:
                 [*params, limit, offset],
             ).fetchall()
             keys = ["case_id", "record_id", "candidate_record_id", "reason", "confidence", "created_at", "status", "resolved_at", "resolution_note"]
-            return [dict(zip(keys, row)) for row in rows], total
+            return [dict(zip(keys, row, strict=True)) for row in rows], total
 
     def get_review_case(self, case_id: str, *, tenant_id: str) -> dict | None:
         with self._connect() as connection:
