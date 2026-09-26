@@ -49,6 +49,7 @@ async def request_context(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     log_event("http_request", request_id=request_id, method=request.method, path=request.url.path, status_code=response.status_code, duration_ms=round(duration * 1000, 2))
     return response
 
