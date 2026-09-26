@@ -1,7 +1,6 @@
 """FastAPI boundary around the reconciliation pipeline."""
 from __future__ import annotations
 
-import secrets
 import tempfile
 import uuid
 import time
@@ -24,11 +23,12 @@ from reconciliation_platform.metrics import observe_http, prometheus_payload, re
 from reconciliation_platform.pipeline import run_pipeline, summarize
 from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
-from reconciliation_platform.ingestion.uploads import build_object_key, validate_tenant_id
+from reconciliation_platform.ingestion.uploads import build_object_key
 from reconciliation_platform.models.canonical_transaction import SourceSystem
 from reconciliation_platform.rate_limit import build_rate_limiter
 from reconciliation_platform.api.errors import install_api_error_handlers
 from reconciliation_platform.api.reviews import router as reviews_router
+from reconciliation_platform.api.app_auth import require_api_key, require_tenant_id
 
 configure_logging()
 app = FastAPI(
@@ -70,57 +70,6 @@ async def request_context(request, call_next):
 
 class ReconciliationRequest(BaseModel):
     data_dir: str = Field(default="data/synthetic/seed")
-
-
-def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
-    settings = Settings.from_env()
-    if not settings.api_key_required:
-        return
-    if not settings.api_key or not x_api_key or not secrets.compare_digest(x_api_key, settings.api_key):
-        raise HTTPException(status_code=401, detail="invalid or missing API key")
-
-
-def resolve_data_dir(data_dir: str) -> Path:
-    requested = Path(data_dir).resolve()
-    configured_root = Path("data").resolve()
-    if not requested.is_dir() or (
-        configured_root not in requested.parents and requested != configured_root
-    ):
-        raise HTTPException(status_code=403, detail="data directory is outside the allowed data root")
-    return requested
-
-
-def build_ai_reviewer(settings: Settings):
-    if settings.ai_provider == "openai":
-        if not settings.openai_api_key:
-            raise HTTPException(status_code=503, detail="AI provider configured without OpenAI API key")
-        return OpenAIReviewer(
-            api_key=settings.openai_api_key,
-            model=settings.ai_model,
-            timeout=settings.ai_timeout_seconds,
-        )
-    return NoOpAIReviewer()
-
-
-def require_tenant_id(
-    x_api_key: str | None = Header(default=None),
-    x_tenant_id: str | None = Header(default=None),
-) -> str:
-    settings = Settings.from_env()
-    if not x_tenant_id:
-        raise HTTPException(status_code=400, detail="X-Tenant-ID header is required")
-    if settings.tenant_api_keys:
-        if not x_api_key:
-            raise HTTPException(status_code=401, detail="tenant API key is required")
-        tenant = settings.tenant_api_keys.get(x_api_key)
-        if tenant is None:
-            raise HTTPException(status_code=401, detail="invalid tenant credentials")
-        if tenant != x_tenant_id:
-            raise HTTPException(status_code=403, detail="API key is not authorized for this tenant")
-    try:
-        return validate_tenant_id(x_tenant_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="invalid tenant id") from exc
 
 
 def _validate_upload(upload: UploadFile) -> None:
