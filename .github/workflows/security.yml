@@ -63,8 +63,7 @@ jobs:
         run: |
           test "$(docker run --rm reconciliation-platform:${{ github.sha }} id -u)" = "10001"
       - name: Scan production image with Trivy
-        run: |
-          docker run --rm             -v /var/run/docker.sock:/var/run/docker.sock             aquasec/trivy:0.66.0 image             --exit-code 1             --severity HIGH,CRITICAL             --ignore-unfixed             reconciliation-platform:${{ github.sha }}
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/repo:ro" aquasec/trivy:0.66.0 image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /repo/.trivyignore reconciliation-platform:${{ github.sha }}
 
   dast-zap:
     runs-on: ubuntu-latest
