@@ -4,6 +4,7 @@ from __future__ import annotations
 import tempfile
 import uuid
 import time
+from datetime import datetime, timezone
 
 from fastapi.responses import Response
 from fastapi import BackgroundTasks
@@ -24,6 +25,8 @@ from reconciliation_platform.pipeline import run_pipeline, summarize
 from reconciliation_platform.storage.factory import build_store
 from reconciliation_platform.storage.object_store_factory import build_object_store
 from reconciliation_platform.ingestion.uploads import build_object_key
+from reconciliation_platform.ingestion.batch import compute_batch_id, compute_file_fingerprint
+from reconciliation_platform.ingestion.parsers import SourceParseError, parse_source
 from reconciliation_platform.models.canonical_transaction import SourceSystem
 from reconciliation_platform.rate_limit import build_rate_limiter
 from reconciliation_platform.api.errors import install_api_error_handlers
@@ -111,6 +114,62 @@ async def _read_upload_limited(upload: UploadFile, max_bytes: int = 10 * 1024 * 
             raise HTTPException(status_code=413, detail="each upload must be <= 10 MiB")
         chunks.append(chunk)
     return b"".join(chunks)
+
+
+@app.post("/v1/uploads", tags=["reconciliation"], summary="Validate and persist a source upload")
+async def upload_source(
+    file: UploadFile = File(...),  # noqa: B008
+    source_system: SourceSystem = SourceSystem.BANK,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    settings = Settings.from_env()
+    if not build_rate_limiter(settings).allow(tenant_id):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    content = await _read_upload_limited(file)
+    try:
+        parsed = parse_source(
+            content,
+            source_system=source_system,
+            filename=file.filename or "upload.csv",
+        )
+        object_key = build_object_key(
+            tenant_id,
+            source_system,
+            file.filename or "upload.csv",
+        )
+    except (SourceParseError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    fingerprint = compute_file_fingerprint(content)
+    batch_id = compute_batch_id(source_system, fingerprint, "1.0")
+    object_store = build_object_store(settings)
+    object_store.put(object_key, content)
+    build_store(settings).register_batch(
+        batch_id=batch_id,
+        source_system=source_system.value,
+        file_fingerprint=fingerprint,
+        schema_version="1.0",
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    record_audit_event(
+        "source.uploaded",
+        tenant_id=tenant_id,
+        source_system=source_system.value,
+        batch_id=batch_id,
+        object_key=object_key,
+        row_count=len(parsed.rows),
+    )
+    return {
+        "tenant_id": tenant_id,
+        "source_system": source_system.value,
+        "filename": parsed.filename,
+        "batch_id": batch_id,
+        "file_fingerprint": fingerprint,
+        "row_count": len(parsed.rows),
+        "columns": list(parsed.columns),
+        "object_key": object_key,
+    }
 
 
 @app.post("/v1/reconcile", tags=["reconciliation"], summary="Reconcile uploaded financial files")

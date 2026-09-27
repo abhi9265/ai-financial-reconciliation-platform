@@ -298,3 +298,22 @@ def test_review_decision_validation_error(monkeypatch, tmp_path):
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     assert response.json()["error"]["details"]
+
+
+def test_source_upload_validates_and_persists_gst_json(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "uploads.db"))
+    content = b'''{"invoices":[{"invoice_number":"INV-1","invoice_date":"2026-08-01","amount":1180,"supplier_gstin":"24ABCDE1234F1Z5","source_record_id":"GST-1"}]}'''
+    response = client.post(
+        "/v1/uploads?source_system=gst",
+        headers={"X-Tenant-ID": "upload_01"},
+        files={"file": ("gst.json", content, "application/json")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_system"] == "gst"
+    assert body["row_count"] == 1
+    assert body["filename"] == "gst.json"
+    assert body["object_key"].startswith("tenants/upload_01/raw/gst/")

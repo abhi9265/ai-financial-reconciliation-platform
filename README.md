@@ -761,6 +761,28 @@ See [Production Deployment Guide](docs/DEPLOYMENT.md).
 
 ---
 
+## Phase 8 — Production Source Ingestion
+
+The next product layer is being implemented around a strict source-parser boundary:
+
+```text
+Bank CSV / Purchase CSV / GST JSON
+              ↓
+      Source-specific parser
+              ↓
+       Source contract
+              ↓
+      Canonical normalization
+              ↓
+       Reconciliation engine
+```
+
+The first slice adds validated parsers for common bank CSV exports, purchase-register CSV exports, and GST invoice JSON. Source-specific parsing remains isolated from reconciliation logic. XLSX/Tally adapters and the upload-to-report workflow are subsequent Phase 8 slices.
+
+See [Production Source Ingestion](docs/SOURCE_INGESTION.md).
+
+---
+
 ## Production Runtime
 
 Docker Compose provides the complete local production topology:
@@ -911,7 +933,6 @@ docker compose up --build
 - [System Architecture](architecture/architecture.md)
 - [Production Architecture](docs/ARCHITECTURE.md)
 - [Production Deployment Guide](docs/DEPLOYMENT.md)
-- [Recruiter / Interview Demo](docs/RECRUITER_DEMO.md)
 - [Architecture Diagrams](docs/architecture-diagrams.md)
 - [API Examples](docs/api-examples.md)
 - [Phase 1 Engineering Report](reports/phase1_mvp_report.md)
@@ -919,12 +940,13 @@ docker compose up --build
 - [Environment Configuration](.env.example)
 - [Security Hardening & External Validation](docs/SECURITY.md)
 - [Source Contracts](data/contracts/source_contracts.json)
+- [Production Source Ingestion](docs/SOURCE_INGESTION.md)
 
 ---
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete.**
+**Engineering status: production-oriented foundation complete; Phase 8 source-ingestion implementation in progress.**
 
 The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
