@@ -1,3 +1,113 @@
+## Zero-cost deployment path
+
+The repository can now run a **production-like deployment locally for ₹0**.
+
+This is the recommended path while the project has a hard no-spend constraint. It exercises the deployment shape without creating AWS, Azure, GCP or other billable resources.
+
+### Local production topology
+
+~~~text
+                    localhost:8080
+                          |
+                    Nginx edge
+                          |
+                    FastAPI API
+                       /     \
+                      /       \
+             PostgreSQL      Redis
+                                |
+                           Celery worker
+                                |
+                         local object volume
+~~~
+
+Run:
+
+~~~bash
+export POSTGRES_PASSWORD='choose-a-local-secret'
+export RECONCILIATION_API_KEY='choose-a-local-secret'
+bash scripts/run_zero_cost_production.sh
+~~~
+
+The script builds the application image locally, starts the complete stack, waits for /ready, and keeps services running until interrupted.
+
+Endpoints:
+
+~~~text
+http://localhost:8080/health
+http://localhost:8080/ready
+http://localhost:8080/openapi.json
+~~~
+
+Nothing in this workflow provisions cloud infrastructure or requires a paid service.
+
+### What this proves
+
+The zero-cost deployment gate validates:
+
+- production Docker image build
+- multi-container startup
+- PostgreSQL readiness
+- Redis readiness
+- API readiness
+- reverse-proxy routing
+- authentication path
+- worker startup
+- restart policies
+- read-only application containers
+- dropped Linux capabilities
+- no-new-privileges runtime configuration
+- clean Compose shutdown
+
+GitHub Actions runs the same validation automatically. It is an application/deployment validation environment, **not a public production environment**.
+
+## Production cloud path later
+
+When spending is explicitly approved, the existing AWS staging Terraform can be promoted to a real environment. That future deployment would require an AWS account, DNS, TLS certificate, secrets and managed services.
+
+**Do not run the AWS Terraform while the project is under the zero-spend constraint.**
+
+## Existing managed-cloud blueprint
+
+The repository still contains infra/aws/staging/ as infrastructure-as-code. It is intentionally not applied as part of the zero-cost path.
+
+The managed architecture remains:
+
+~~~text
+Internet
+   |
+HTTPS Load Balancer
+   |
+FastAPI replicas
+   |       |       |
+   |       |       +--> Managed PostgreSQL
+   |       +----------> Managed Redis
+   +------------------> S3-compatible object storage
+
+Celery worker replicas <--- Redis queue
+~~~
+
+No live cloud resources are claimed.
+
+## Deployment sequence for a future paid environment
+
+1. Build an immutable image from a tagged commit.
+2. Push the image to a private registry.
+3. Provision managed PostgreSQL, Redis, object storage and HTTPS ingress.
+4. Configure secrets through a secret manager.
+5. Apply controlled database migrations.
+6. Deploy API and worker replicas separately.
+7. Run /health and /ready smoke tests.
+8. Verify metrics, logs, backups and alerts.
+9. Monitor rollout and retain the previous image for rollback.
+10. Exercise restore and rollback procedures.
+
+## Current deployment claim
+
+> **Application: production-like deployment verified locally and in CI. Cloud: deployment blueprint only; no billable cloud resources have been provisioned.**
+
+The repository proves deployment mechanics without pretending that a local environment is customer-facing production.
+
 # Production Deployment Guide
 
 ## Scope

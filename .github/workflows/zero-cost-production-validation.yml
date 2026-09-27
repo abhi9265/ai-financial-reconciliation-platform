@@ -1,0 +1,85 @@
+name: Zero-Cost Production Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "docker-compose.production.yml"
+      - "deploy/**"
+      - "scripts/run_zero_cost_production.sh"
+      - ".github/workflows/zero-cost-production-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "docker-compose.production.yml"
+      - "deploy/**"
+      - "scripts/run_zero_cost_production.sh"
+      - ".github/workflows/zero-cost-production-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate production-like Compose
+        run: |
+          POSTGRES_PASSWORD=ci-password \
+          RECONCILIATION_API_KEY=ci-api-key \
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.production.yml \
+            config --quiet
+
+      - name: Start production-like stack
+        run: |
+          POSTGRES_PASSWORD=ci-password \
+          RECONCILIATION_API_KEY=ci-api-key \
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.production.yml \
+            up -d --build
+
+      - name: Wait for edge readiness
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8080/ready; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -f docker-compose.yml -f docker-compose.production.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.production.yml logs --tail=120
+          exit 1
+
+      - name: Validate health and readiness
+        run: |
+          curl -fsS http://localhost:8080/health
+          curl -fsS http://localhost:8080/ready
+
+      - name: Validate API through edge
+        run: |
+          curl -fsS \
+            -H "X-API-Key: ci-api-key" \
+            -H "X-Tenant-ID: ci" \
+            http://localhost:8080/openapi.json >/dev/null
+
+      - name: Stop stack
+        if: always()
+        run: |
+          POSTGRES_PASSWORD=ci-password \
+          RECONCILIATION_API_KEY=ci-api-key \
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.production.yml \
+            down -v
