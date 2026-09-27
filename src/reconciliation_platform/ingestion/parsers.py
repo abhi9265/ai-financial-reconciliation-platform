@@ -158,6 +158,24 @@ def _parse_csv(content: bytes, source_system: SourceSystem, filename: str) -> Pa
     if not rows:
         raise SourceParseError("source file contains no data rows")
 
+    # Many bank exports expose debit/credit but omit a separate amount column.
+    # Derive the canonical amount before applying the strict source contract.
+    if source_system is SourceSystem.BANK and "amount" not in columns:
+        if "debit" not in columns and "credit" not in columns:
+            raise SourceParseError("bank source requires amount or debit/credit columns")
+        rows = [
+            {
+                **row,
+                "amount": (
+                    row.get("debit")
+                    if str(row.get("debit") or "").strip()
+                    else row.get("credit")
+                ),
+            }
+            for row in rows
+        ]
+        columns = tuple((*columns, "amount"))
+
     try:
         validate_columns(source_system, columns)
         validate_rows(rows, columns)
