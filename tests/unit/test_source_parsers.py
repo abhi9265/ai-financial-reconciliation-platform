@@ -85,7 +85,7 @@ def test_parser_rejects_unknown_format():
         parse_source(
             b"hello",
             source_system=SourceSystem.BANK,
-            filename="bank.xlsx",
+            filename="bank.pdf",
         )
     except SourceParseError as exc:
         assert "unsupported file format" in str(exc)
@@ -141,3 +141,30 @@ def test_tally_xlsx_parser_reads_active_sheet():
     assert parsed.rows[0]["source_record_id"] == "T-1"
     assert parsed.rows[0]["amount"] == 1250
     assert parsed.rows[0]["account_name"] == "ACME"
+
+
+def test_parser_rejects_xlsx_for_non_tally_source():
+    try:
+        parse_source(b"not-xlsx", source_system=SourceSystem.BANK, filename="bank.xlsx")
+    except SourceParseError as exc:
+        assert "Tally source only" in str(exc)
+    else:
+        raise AssertionError("expected source-specific XLSX failure")
+
+
+def test_parser_rejects_invalid_json():
+    try:
+        parse_source(b"{bad", source_system=SourceSystem.GST, filename="gst.json")
+    except SourceParseError as exc:
+        assert "invalid UTF-8 JSON" in str(exc)
+    else:
+        raise AssertionError("expected invalid JSON failure")
+
+
+def test_parser_rejects_empty_csv():
+    try:
+        parse_source(b"transaction_id,transaction_date,amount,narration,reference,account_number\n", source_system=SourceSystem.BANK, filename="bank.csv")
+    except SourceParseError as exc:
+        assert "no data rows" in str(exc)
+    else:
+        raise AssertionError("expected empty CSV failure")
