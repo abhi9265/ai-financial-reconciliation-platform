@@ -208,6 +208,61 @@ def _flatten_json_record(record: Mapping[str, Any]) -> dict[str, Any]:
     return flattened
 
 
+def _parse_xlsx(content: bytes, source_system: SourceSystem, filename: str) -> ParsedSource:
+    if source_system is not SourceSystem.TALLY:
+        raise SourceParseError("XLSX uploads currently support the Tally source only")
+    try:
+        from openpyxl import load_workbook
+        workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception as exc:
+        raise SourceParseError("invalid XLSX workbook") from exc
+
+    try:
+        sheet = workbook.active
+        rows_iter = sheet.iter_rows(values_only=True)
+        header_row: tuple[Any, ...] | None = None
+        buffered_rows: list[tuple[Any, ...]] = []
+        for _ in range(20):
+            try:
+                row = next(rows_iter)
+            except StopIteration:
+                break
+            if sum(value is not None and str(value).strip() != "" for value in row) >= 2:
+                header_row = row
+                break
+        if header_row is None:
+            raise SourceParseError("XLSX does not contain a usable header row")
+
+        raw_headers = [str(value) for value in header_row]
+        columns = _map_headers(source_system, raw_headers)
+        for row in rows_iter:
+            values = list(row[: len(columns)])
+            if not any(value is not None and str(value).strip() != "" for value in values):
+                continue
+            values.extend([None] * (len(columns) - len(values)))
+            buffered_rows.append(
+                {
+                    columns[index]: value.strip() if isinstance(value, str) else value
+                    for index, value in enumerate(values)
+                }
+            )
+    except SourceParseError:
+        raise
+    except Exception as exc:
+        raise SourceParseError("failed to read XLSX rows") from exc
+    finally:
+        workbook.close()
+
+    if not buffered_rows:
+        raise SourceParseError("XLSX contains no data rows")
+    try:
+        validate_columns(source_system, columns)
+        validate_rows(buffered_rows, columns)
+    except IngestionContractError as exc:
+        raise SourceParseError(str(exc)) from exc
+    return ParsedSource(source_system, filename, columns, tuple(buffered_rows))
+
+
 def _parse_gst_json(content: bytes, filename: str) -> ParsedSource:
     try:
         payload = json.loads(content.decode("utf-8-sig"))
@@ -271,6 +326,8 @@ def parse_source(content: bytes, *, source_system: SourceSystem, filename: str) 
     suffix = normalized_name.rsplit(".", 1)[-1].lower() if "." in normalized_name else ""
     if suffix == "csv":
         return _parse_csv(content, source_system, normalized_name)
+    if suffix == "xlsx":
+        return _parse_xlsx(content, source_system, normalized_name)
     if suffix == "json" and source_system is SourceSystem.GST:
         return _parse_gst_json(content, normalized_name)
     raise SourceParseError(
