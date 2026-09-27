@@ -22,9 +22,11 @@ def test_bank_parser_maps_common_export_headers():
         "narration",
         "reference",
         "account_number",
+        "amount",
     )
     assert parsed.rows[0]["transaction_id"] == "B-1"
     assert parsed.rows[0]["debit"] == "1250.00"
+    assert parsed.rows[0]["amount"] == "1250.00"
 
 
 def test_purchase_parser_maps_vendor_export_headers():
@@ -103,3 +105,20 @@ def test_parser_rejects_duplicate_mapped_columns():
         assert "duplicate canonical columns" in str(exc)
     else:
         raise AssertionError("expected duplicate-header failure")
+
+
+def test_tally_parser_maps_common_ledger_export_headers():
+    content = (
+        "Date,Amount,Type,Record ID,Reference No,Ledger,Narration,Debit,Credit\n"
+        "2026-08-01,1250,PAYMENT,T-1,INV-1,ACME SUPPLIES,Office purchase,1250,\n"
+    ).encode()
+
+    parsed = parse_source(
+        content,
+        source_system=SourceSystem.TALLY,
+        filename="tally-ledger.csv",
+    )
+
+    assert parsed.rows[0]["source_record_id"] == "T-1"
+    assert parsed.rows[0]["transaction_type"] == "PAYMENT"
+    assert parsed.rows[0]["account_name"] == "ACME SUPPLIES"
