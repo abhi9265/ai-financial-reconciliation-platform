@@ -227,7 +227,7 @@ def _parse_gst_json(content: bytes, filename: str) -> ParsedSource:
     }
 
     rows: list[dict[str, Any]] = []
-    for index, record in enumerate(records, start=1):
+    for record in records:
         flattened = _flatten_json_record(record)
         mapped: dict[str, Any] = {}
         for key, value in flattened.items():
