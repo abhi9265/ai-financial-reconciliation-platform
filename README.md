@@ -906,15 +906,6 @@ docker compose up --build
 
 ---
 
-## Recruiter & Interview Package
-
-If you are reviewing this repository for a Data Engineer / Backend / AI Systems role, start here:
-
-- [Recruiter One-Pager](docs/RECRUITER_ONE_PAGER.md) — one-screen project summary
-- [Interview Cheat Sheet](docs/INTERVIEW_CHEATSHEET.md) — architecture, scale, AI and security answers
-- [Project Case Study](docs/PROJECT_CASE_STUDY.md) — engineering decisions and trade-offs
-- [Recruiter / Interview Demo](docs/RECRUITER_DEMO.md) — five-minute walkthrough
-
 ## Engineering Documentation
 
 - [System Architecture](architecture/architecture.md)
@@ -933,7 +924,7 @@ If you are reviewing this repository for a Data Engineer / Backend / AI Systems 
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; recruiter/interview package complete.**
+**Engineering status: production-oriented foundation complete.**
 
 The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
