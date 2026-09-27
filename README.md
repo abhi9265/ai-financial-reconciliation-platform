@@ -732,6 +732,35 @@ Production secrets are expected to come from the deployment platform's secret-ma
 
 ---
 
+## Zero-Cost Production Deployment
+
+The project now includes a **production-like local deployment path that costs ₹0**.
+
+It runs:
+
+~~~text
+Nginx edge → FastAPI API → PostgreSQL
+                    └──→ Redis → Celery worker
+                             
+Local object storage + optional observability
+~~~
+
+Start it with:
+
+~~~bash
+export POSTGRES_PASSWORD='choose-a-local-secret'
+export RECONCILIATION_API_KEY='choose-a-local-secret'
+bash scripts/run_zero_cost_production.sh
+~~~
+
+The deployment is validated by GitHub Actions and includes hardened container runtime settings, readiness checks, reverse-proxy routing and authentication smoke tests.
+
+**No AWS/Azure/GCP resources are provisioned by this path.** The existing AWS Terraform remains a future cloud deployment blueprint and is intentionally not applied under the current zero-spend constraint.
+
+See [Production Deployment Guide](docs/DEPLOYMENT.md).
+
+---
+
 ## Production Runtime
 
 Docker Compose provides the complete local production topology:
