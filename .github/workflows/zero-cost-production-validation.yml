@@ -77,6 +77,8 @@ jobs:
       - name: Stop stack
         if: always()
         run: |
+          POSTGRES_PASSWORD=ci-password \
+          RECONCILIATION_API_KEY=ci-api-key \
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.production.yml \
