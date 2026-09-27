@@ -21,10 +21,12 @@ def build_object_key(tenant_id: str, source_system: SourceSystem, filename: str)
     safe_name = PurePosixPath(filename or "upload.csv").name
     safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
     suffix = safe_name.lower().rsplit(".", 1)[-1] if "." in safe_name else ""
-    if suffix not in {"csv", "json"}:
-        raise ValueError("only CSV and JSON uploads are supported")
+    if suffix not in {"csv", "json", "xlsx"}:
+        raise ValueError("only CSV, JSON, and XLSX uploads are supported")
     if source_system is SourceSystem.GST and suffix != "json":
         raise ValueError("GST uploads must be JSON")
-    if source_system is not SourceSystem.GST and suffix != "csv":
+    if source_system is SourceSystem.TALLY and suffix not in {"csv", "xlsx"}:
+        raise ValueError("Tally uploads must be CSV or XLSX")
+    if source_system is not SourceSystem.GST and source_system is not SourceSystem.TALLY and suffix != "csv":
         raise ValueError(f"{source_system.value} uploads must be CSV")
     return f"tenants/{tenant}/raw/{source_system.value.lower()}/{safe_name}"

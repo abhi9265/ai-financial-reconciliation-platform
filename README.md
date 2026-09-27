@@ -777,7 +777,7 @@ Bank CSV / Purchase CSV / GST JSON
        Reconciliation engine
 ```
 
-The first slice adds validated parsers for common bank CSV exports, purchase-register CSV exports, and GST invoice JSON. Source-specific parsing remains isolated from reconciliation logic. XLSX/Tally adapters and the upload-to-report workflow are subsequent Phase 8 slices.
+The first slice now includes validated parsers for common bank CSV exports, purchase-register CSV exports, Tally CSV/XLSX exports, and GST invoice JSON. A tenant-scoped `/v1/uploads` endpoint validates and persists source files with batch fingerprints. Source-specific parsing remains isolated from reconciliation logic; upload-to-report orchestration is the next Phase 8 slice.
 
 See [Production Source Ingestion](docs/SOURCE_INGESTION.md).
 
@@ -884,7 +884,7 @@ The repository's production-hardening work has been merged to `main`, including 
 |---|---|
 | `GET /health` | Liveness |
 | `GET /ready` | Dependency readiness |
-| `POST /v1/reconcile` | Synchronous tenant-scoped reconciliation |
+| `POST /v1/uploads` | Validate and persist a tenant-scoped source upload |\n| `POST /v1/reconcile` | Synchronous tenant-scoped reconciliation |
 | `POST /v1/reconcile/async` | Queue reconciliation job |
 | `GET /v1/reconcile/jobs/{job_id}` | Poll job status/result |
 | `GET /v1/audit` | Tenant-scoped audit events |

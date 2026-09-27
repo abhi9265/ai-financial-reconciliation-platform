@@ -27,9 +27,11 @@ Normalization remains responsible for business semantics such as:
 
 - Bank statement CSV
 - Purchase register CSV
+- Tally ledger CSV
+- Tally ledger XLSX
 - GST invoice JSON
 
-The initial implementation intentionally does **not** claim support for XLSX or arbitrary bank/Tally exports. Those are subsequent parser adapters with dedicated fixtures.
+The initial implementation now includes a dedicated Tally XLSX adapter with a bounded preamble/header scan. Arbitrary bank XLSX exports are intentionally not treated as supported until they have a source-specific contract and fixtures.
 
 ## Design rule
 
