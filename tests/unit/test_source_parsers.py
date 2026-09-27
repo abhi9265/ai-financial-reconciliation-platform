@@ -1,3 +1,7 @@
+from io import BytesIO
+
+from openpyxl import Workbook
+
 from reconciliation_platform.ingestion.parsers import SourceParseError, parse_source
 from reconciliation_platform.models.canonical_transaction import SourceSystem
 
@@ -122,3 +126,18 @@ def test_tally_parser_maps_common_ledger_export_headers():
     assert parsed.rows[0]["source_record_id"] == "T-1"
     assert parsed.rows[0]["transaction_type"] == "PAYMENT"
     assert parsed.rows[0]["account_name"] == "ACME SUPPLIES"
+
+
+def test_tally_xlsx_parser_reads_active_sheet():
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Tally export generated 2026-08-01"])
+    sheet.append([])
+    sheet.append(["Date", "Amount", "Type", "Record ID", "Reference No", "Ledger", "Narration"])
+    sheet.append(["2026-08-01", 1250, "PAYMENT", "T-1", "INV-1", "ACME", "Office purchase"])
+    payload = BytesIO()
+    workbook.save(payload)
+    parsed = parse_source(payload.getvalue(), source_system=SourceSystem.TALLY, filename="tally-export.xlsx")
+    assert parsed.rows[0]["source_record_id"] == "T-1"
+    assert parsed.rows[0]["amount"] == 1250
+    assert parsed.rows[0]["account_name"] == "ACME"
