@@ -13,6 +13,12 @@ from reconciliation_platform.api.app_auth import require_api_key, require_tenant
 router = APIRouter(prefix="/v1/reviews", tags=["reviews"])
 
 
+class BulkReviewDecisionRequest(BaseModel):
+    case_ids: list[str] = Field(min_length=1, max_length=50)
+    action: str = Field(pattern="^(approve|reject)$")
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class ReviewDecisionRequest(BaseModel):
     action: str = Field(pattern="^(approve|reject)$")
     note: str | None = Field(default=None, max_length=2000)
@@ -80,6 +86,36 @@ def decide_review(
         note=request.note,
     )
     return store.get_review_case(case_id, tenant_id=tenant_id)
+
+
+@router.post("/bulk-decision", summary="Approve or reject multiple review cases")
+def bulk_decide_reviews(
+    request: BulkReviewDecisionRequest,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    store = build_store(Settings.from_env())
+    resolved = []
+    conflicts = []
+    for case_id in request.case_ids:
+        case = store.get_review_case(case_id, tenant_id=tenant_id)
+        if case is None:
+            conflicts.append({"case_id": case_id, "reason": "not_found"})
+            continue
+        if case["status"] != "open":
+            conflicts.append({"case_id": case_id, "reason": "already_resolved"})
+            continue
+        updated = store.resolve_review_case(
+            case_id, tenant_id=tenant_id,
+            status="approved" if request.action == "approve" else "rejected",
+            note=request.note,
+        )
+        if updated:
+            resolved.append(case_id)
+            record_audit_event("review_case.decided", tenant_id=tenant_id, case_id=case_id, action=request.action, note=request.note)
+        else:
+            conflicts.append({"case_id": case_id, "reason": "concurrent_update"})
+    return {"tenant_id": tenant_id, "action": request.action, "resolved": resolved, "conflicts": conflicts}
 
 
 @router.get("/{case_id}", summary="Get a review case")
