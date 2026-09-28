@@ -36,3 +36,8 @@ The initial implementation now includes a dedicated Tally XLSX adapter with a bo
 ## Design rule
 
 Do not add source-specific parsing branches to the reconciliation engine. New source formats should implement the parser boundary and produce the same contract-shaped rows.
+
+
+## Phase 8 — Upload-to-Reconciliation Workflow
+
+Phase 8 now has an upload-to-reconciliation execution path: validated bank and purchase uploads are parsed at the async job boundary, persisted as tenant-scoped raw objects, assigned deterministic batch fingerprints, and then executed by the existing reconciliation worker path. The job response exposes batch IDs and parsed row counts, and completed jobs expose a tenant-scoped report endpoint. Invalid source files fail before a reconciliation job is queued.
