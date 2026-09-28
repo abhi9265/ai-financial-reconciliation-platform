@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi import HTTPException, UploadFile
 from io import BytesIO
@@ -54,9 +56,8 @@ def test_build_ai_reviewer_uses_noop_by_default(monkeypatch):
     assert reviewer.__class__.__name__ == "NoOpAIReviewer"
 
 
-@pytest.mark.asyncio
-async def test_read_upload_limited_rejects_oversized_payload():
+def test_read_upload_limited_rejects_oversized_payload():
     upload = UploadFile(file=BytesIO(b"x" * (10 * 1024 * 1024 + 1)), filename="large.csv")
     with pytest.raises(HTTPException) as exc:
-        await _read_upload_limited(upload)
+        asyncio.run(_read_upload_limited(upload))
     assert exc.value.status_code == 413
