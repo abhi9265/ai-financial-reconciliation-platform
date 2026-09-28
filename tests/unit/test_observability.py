@@ -9,7 +9,7 @@ from reconciliation_platform.metrics import (
     set_review_backlog,
     snapshot,
 )
-from reconciliation_platform.observability import get_request_id, set_request_id
+from reconciliation_platform.observability import get_request_id, log_event, set_request_id, timed_event
 
 
 def test_prometheus_metrics_and_snapshot():
@@ -41,3 +41,20 @@ def test_request_id_context():
     request_id = set_request_id("observability-test")
     assert request_id == "observability-test"
     assert get_request_id() == "observability-test"
+
+
+def test_async_job_duration_is_recorded():
+    reset()
+    record_reconciliation({"matched": 1}, mode="async", duration_seconds=0.25)
+    payload = prometheus_payload().decode()
+    assert "reconciliation_job_duration_seconds" in payload
+
+
+def test_timed_event_logs_success_and_error():
+    timed_event("test.success", {"component": "unit"})
+    try:
+        with timed_event("test.error"):
+            raise ValueError("expected")
+    except ValueError:
+        pass
+    log_event("test.completed")
