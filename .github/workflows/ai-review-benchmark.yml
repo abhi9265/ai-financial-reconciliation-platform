@@ -10,7 +10,6 @@ on:
 
 jobs:
   ai-evaluation:
-    if: ${{ secrets.OPENAI_API_KEY != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -23,9 +22,20 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - name: Check for live-provider credential
+        id: credential
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "OPENAI_API_KEY is not configured; skipping measured live AI benchmark."
+          fi
       - name: Run 400-case AI evaluation
+        if: steps.credential.outputs.available == 'true'
         run: python scripts/run_ai_review_benchmark.py --cases 400 --output reports/ai-review-benchmark.json
       - name: Upload measured AI evidence
+        if: steps.credential.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ai-review-benchmark-400
