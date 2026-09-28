@@ -763,6 +763,22 @@ See [Production Deployment Guide](docs/DEPLOYMENT.md).
 
 ## Phase 8 — Production Source Ingestion
 
+The ingestion boundary now connects validated source files to the reconciliation execution path:
+
+- async reconciliation validates bank and purchase source contracts before a job is queued
+- raw uploads are persisted through the existing tenant-scoped object-store boundary
+- deterministic batch IDs are computed from source + file fingerprint + schema version
+- queued jobs expose parsed source row counts and batch IDs
+- completed jobs expose a tenant-scoped reconciliation report
+- invalid source files fail before a reconciliation job is created
+
+```text
+Upload → Parse/Validate → Batch Identity → Raw Object
+      → Reconciliation Job → Normalize → Deterministic Matching
+      → Review/AI Escalation → Persist Result → Report + Audit
+```
+
+
 The next product layer is being implemented around a strict source-parser boundary:
 
 ```text
@@ -777,7 +793,7 @@ Bank CSV / Purchase CSV / GST JSON
        Reconciliation engine
 ```
 
-The first slice now includes validated parsers for common bank CSV exports, purchase-register CSV exports, Tally CSV/XLSX exports, and GST invoice JSON. A tenant-scoped `/v1/uploads` endpoint validates and persists source files with batch fingerprints. Source-specific parsing remains isolated from reconciliation logic; upload-to-report orchestration is the next Phase 8 slice.
+The first slice now includes validated parsers for common bank CSV exports, purchase-register CSV exports, Tally CSV/XLSX exports, and GST invoice JSON. A tenant-scoped `/v1/uploads` endpoint validates and persists source files with batch fingerprints. Source-specific parsing remains isolated from reconciliation logic; upload-to-report orchestration is now connected through the asynchronous reconciliation path.
 
 See [Production Source Ingestion](docs/SOURCE_INGESTION.md).
 
@@ -946,7 +962,7 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; Phase 8 source-ingestion implementation in progress.**
+**Engineering status: production-oriented foundation complete; Phase 8 source ingestion and upload-to-reconciliation workflow in progress.**
 
 The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
 
