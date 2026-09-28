@@ -894,6 +894,20 @@ The repository's production-hardening work has been merged to `main`, including 
 
 ---
 
+## Production Productization
+
+Phase 9 completes the durable product backend with explicit Alembic migrations, individual reconciliation-result persistence, tenant-scoped reports, review decisions, CSV/JSON exports, end-to-end evidence, and completed async job-duration metrics. Phase 10 adds a lightweight browser dashboard at /dashboard/ for job reports, exports, and human review actions. The dashboard is dependency-free and uses the existing authenticated API.
+
+### Reconciliation evidence endpoints
+
+- GET /v1/reconcile/jobs/{job_id}/results — paginated persisted decisions
+- GET /v1/reconcile/jobs/{job_id}/export.csv — reconciliation CSV
+- GET /v1/reconcile/jobs/{job_id}/export.json — reconciliation report JSON
+- POST /v1/reviews/bulk-decision — bounded bulk human decisions
+- GET /dashboard/ — browser console
+
+See [Database Migrations](docs/DATABASE_MIGRATIONS.md).
+
 ## API Surface
 
 | Endpoint | Purpose |
@@ -903,6 +917,13 @@ The repository's production-hardening work has been merged to `main`, including 
 | `POST /v1/uploads` | Validate and persist a tenant-scoped source upload |\n| `POST /v1/reconcile` | Synchronous tenant-scoped reconciliation |
 | `POST /v1/reconcile/async` | Queue reconciliation job |
 | `GET /v1/reconcile/jobs/{job_id}` | Poll job status/result |
+| `GET /v1/reconcile/jobs/{job_id}/report` | Durable reconciliation report |
+| `GET /v1/reconcile/jobs/{job_id}/results` | Persisted decision records |
+| `GET /v1/reconcile/jobs/{job_id}/export.csv` | CSV export |
+| `GET /v1/reconcile/jobs/{job_id}/export.json` | JSON export |
+| `GET /v1/reviews` | Human review queue |
+| `POST /v1/reviews/bulk-decision` | Bulk review decisions |
+| `GET /dashboard/` | Browser product console |
 | `GET /v1/audit` | Tenant-scoped audit events |
 | `GET /metrics` | Operational metrics |
 
@@ -957,6 +978,7 @@ docker compose up --build
 - [Security Hardening & External Validation](docs/SECURITY.md)
 - [Source Contracts](data/contracts/source_contracts.json)
 - [Production Source Ingestion](docs/SOURCE_INGESTION.md)
+- [Database Migrations](docs/DATABASE_MIGRATIONS.md)
 
 ---
 
