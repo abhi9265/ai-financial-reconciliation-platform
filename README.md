@@ -779,7 +779,7 @@ Upload → Parse/Validate → Batch Identity → Raw Object
 ```
 
 
-The next product layer is being implemented around a strict source-parser boundary:
+The Phase 8 source-parser boundary is now implemented as a strict ingestion layer:
 
 ```text
 Bank CSV / Purchase CSV / GST JSON
@@ -962,9 +962,9 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; Phase 8 source ingestion and upload-to-reconciliation workflow in progress.**
+**Engineering status: production-oriented foundation complete; Phase 8 source ingestion and upload-to-reconciliation workflow complete.**
 
-The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. The current milestone extends the reconciliation engine with adversarial data generation, candidate blocking, one-to-many matching, partial-payment handling, and measured scalability benchmarking.
+The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. Phase 8 now adds source-specific ingestion, durable reconciliation reports, tenant-scoped batch lineage, and upload-to-report orchestration on top of the existing reconciliation engine.
 
 The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. Phase 1 now includes deterministic customer-shaped validation across bank/Tally/GST-style inputs, partial payments, one-to-many matching, date windows, incompatible financial noise, unmatched exceptions and canonical-contract validation. See [docs/CUSTOMER_DATA_VALIDATION.md](docs/CUSTOMER_DATA_VALIDATION.md). A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
