@@ -97,9 +97,16 @@ def build_ai_reviewer(settings: Settings):
     return NoOpAIReviewer()
 
 
-def _validate_upload(upload: UploadFile) -> None:
-    if not upload.filename or not upload.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=415, detail="only CSV uploads are supported")
+def _validate_upload(upload: UploadFile, source_system: SourceSystem) -> None:
+    if not upload.filename:
+        raise HTTPException(status_code=415, detail="upload filename is required")
+    suffix = Path(upload.filename).suffix.lower()
+    if source_system is SourceSystem.GST and suffix != ".json":
+        raise HTTPException(status_code=415, detail="GST uploads must be JSON")
+    if source_system is SourceSystem.TALLY and suffix not in {".csv", ".xlsx"}:
+        raise HTTPException(status_code=415, detail="Tally uploads must be CSV or XLSX")
+    if source_system not in {SourceSystem.GST, SourceSystem.TALLY} and suffix != ".csv":
+        raise HTTPException(status_code=415, detail=f"{source_system.value} uploads must be CSV")
 
 
 async def _read_upload_limited(upload: UploadFile, max_bytes: int = 10 * 1024 * 1024) -> bytes:
@@ -179,8 +186,8 @@ async def reconcile_uploaded_files(
     _: None = Depends(require_api_key),
     tenant_id: str = Depends(require_tenant_id),
 ) -> dict:
-    _validate_upload(bank_file)
-    _validate_upload(purchase_file)
+    _validate_upload(bank_file, SourceSystem.BANK)
+    _validate_upload(purchase_file, SourceSystem.PURCHASE_REGISTER)
     settings = Settings.from_env()
     if not build_rate_limiter(settings).allow(tenant_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
@@ -289,8 +296,8 @@ async def enqueue_reconciliation(
     _: None = Depends(require_api_key),
     tenant_id: str = Depends(require_tenant_id),
 ) -> dict:
-    _validate_upload(bank_file)
-    _validate_upload(purchase_file)
+    _validate_upload(bank_file, SourceSystem.BANK)
+    _validate_upload(purchase_file, SourceSystem.PURCHASE_REGISTER)
     if idempotency_key is not None and not 1 <= len(idempotency_key) <= 255:
         raise HTTPException(status_code=400, detail="Idempotency-Key must be 1-255 characters")
     settings = Settings.from_env()
@@ -301,10 +308,23 @@ async def enqueue_reconciliation(
     purchase_key = build_object_key(tenant_id, SourceSystem.PURCHASE_REGISTER, purchase_file.filename or "purchase.csv")
     bank_content = await _read_upload_limited(bank_file)
     purchase_content = await _read_upload_limited(purchase_file)
+    try:
+        bank_parsed = parse_source(bank_content, source_system=SourceSystem.BANK, filename=bank_file.filename or "bank.csv")
+        purchase_parsed = parse_source(purchase_content, source_system=SourceSystem.PURCHASE_REGISTER, filename=purchase_file.filename or "purchase.csv")
+    except SourceParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     object_store.put(bank_key, bank_content)
     object_store.put(purchase_key, purchase_content)
-    job_id = uuid.uuid4().hex
+    now = datetime.now(timezone.utc).isoformat()
     store = build_store(settings)
+    bank_fingerprint = compute_file_fingerprint(bank_content)
+    purchase_fingerprint = compute_file_fingerprint(purchase_content)
+    bank_batch_id = compute_batch_id(SourceSystem.BANK, bank_fingerprint, "1.0")
+    purchase_batch_id = compute_batch_id(SourceSystem.PURCHASE_REGISTER, purchase_fingerprint, "1.0")
+    store.register_batch(batch_id=bank_batch_id, source_system=SourceSystem.BANK.value, file_fingerprint=bank_fingerprint, schema_version="1.0", created_at=now)
+    store.register_batch(batch_id=purchase_batch_id, source_system=SourceSystem.PURCHASE_REGISTER.value, file_fingerprint=purchase_fingerprint, schema_version="1.0", created_at=now)
+    job_id = uuid.uuid4().hex
     existing_or_created_job_id = store.create_job(
         job_id=job_id,
         tenant_id=tenant_id,
@@ -329,6 +349,8 @@ async def enqueue_reconciliation(
         "job_id": job_id,
         "tenant_id": tenant_id,
         "status": "queued",
+        "batches": {"bank": bank_batch_id, "purchase_register": purchase_batch_id},
+        "row_counts": {"bank": len(bank_parsed.rows), "purchase_register": len(purchase_parsed.rows)},
         "objects": {"bank": bank_key, "purchase_register": purchase_key},
     }
 
@@ -344,6 +366,28 @@ def reconciliation_job_status(
         raise HTTPException(status_code=404, detail="job not found")
     record_audit_event("reconciliation.job.status_read", tenant_id=tenant_id, job_id=job_id, status=job["status"])
     return job
+
+
+@app.get("/v1/reconcile/jobs/{job_id}/report", tags=["reconciliation"], summary="Get the completed reconciliation report")
+def reconciliation_job_report(
+    job_id: str,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    job = build_store(Settings.from_env()).get_job(job_id, tenant_id=tenant_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    if job["status"] != "succeeded":
+        raise HTTPException(
+            status_code=409,
+            detail=f"reconciliation report is unavailable while job status is {job['status']}",
+        )
+    return {
+        "job_id": job_id,
+        "tenant_id": tenant_id,
+        "status": job["status"],
+        "report": job.get("result") or {},
+    }
 
 
 @app.get("/health", tags=["operations"], summary="Liveness check")
