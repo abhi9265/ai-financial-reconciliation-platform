@@ -158,6 +158,7 @@ async def upload_source(
         file_fingerprint=fingerprint,
         schema_version="1.0",
         created_at=datetime.now(timezone.utc).isoformat(),
+        tenant_id=tenant_id,
     )
     record_audit_event(
         "source.uploaded",
@@ -323,8 +324,8 @@ async def enqueue_reconciliation(
     purchase_fingerprint = compute_file_fingerprint(purchase_content)
     bank_batch_id = compute_batch_id(SourceSystem.BANK, bank_fingerprint, "1.0", tenant_id)
     purchase_batch_id = compute_batch_id(SourceSystem.PURCHASE_REGISTER, purchase_fingerprint, "1.0", tenant_id)
-    store.register_batch(batch_id=bank_batch_id, source_system=SourceSystem.BANK.value, file_fingerprint=bank_fingerprint, schema_version="1.0", created_at=now)
-    store.register_batch(batch_id=purchase_batch_id, source_system=SourceSystem.PURCHASE_REGISTER.value, file_fingerprint=purchase_fingerprint, schema_version="1.0", created_at=now)
+    store.register_batch(batch_id=bank_batch_id, tenant_id=tenant_id, source_system=SourceSystem.BANK.value, file_fingerprint=bank_fingerprint, schema_version="1.0", created_at=now)
+    store.register_batch(batch_id=purchase_batch_id, tenant_id=tenant_id, source_system=SourceSystem.PURCHASE_REGISTER.value, file_fingerprint=purchase_fingerprint, schema_version="1.0", created_at=now)
     job_id = uuid.uuid4().hex
     existing_or_created_job_id = store.create_job(
         job_id=job_id,
