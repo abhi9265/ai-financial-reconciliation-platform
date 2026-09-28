@@ -68,14 +68,63 @@ def run_pipeline(data_dir: str | Path) -> dict:
     }
 
 
-def summarize(result: dict) -> dict[str, int]:
+def summarize(result: dict) -> dict:
+    """Build a durable, JSON-serializable reconciliation report."""
     decisions = result["decisions"]
-    return {
-        "bank_rows": len(result["bank"]),
-        "purchase_rows": len(result["purchase"]),
+    quality_issues = result["quality_issues"]
+    anomalies = result["anomalies"]
+    metadata = result["metadata"]
+
+    tier_counts: dict[str, int] = {}
+    for decision in decisions:
+        tier_counts[decision.tier] = tier_counts.get(decision.tier, 0) + 1
+
+    status_counts = {
         "matched": sum(d.status == "MATCHED" for d in decisions),
         "review": sum(d.status == "REVIEW" for d in decisions),
         "unmatched": sum(d.status == "UNMATCHED" for d in decisions),
-        "quality_issues": len(result["quality_issues"]),
-        "anomalies": len(result["anomalies"]),
+    }
+
+    return {
+        "report_version": "1.0",
+        "bank_rows": len(result["bank"]),
+        "purchase_rows": len(result["purchase"]),
+        **status_counts,
+        "quality_issues": len(quality_issues),
+        "anomalies": len(anomalies),
+        "match_breakdown": {
+            "by_status": status_counts,
+            "by_tier": tier_counts,
+        },
+        "source_batches": {
+            "bank": metadata["bank_batch_id"],
+            "purchase_register": metadata["purchase_batch_id"],
+        },
+        "source_fingerprints": {
+            "bank": metadata["bank_file_hash"],
+            "purchase_register": metadata["purchase_file_hash"],
+        },
+        "anomaly_details": [
+            {
+                "record_id": anomaly.record_id,
+                "type": anomaly.anomaly_type,
+                "severity": anomaly.severity,
+                "message": anomaly.message,
+                "amount_difference": (
+                    str(anomaly.amount_difference)
+                    if anomaly.amount_difference is not None
+                    else None
+                ),
+            }
+            for anomaly in anomalies
+        ],
+        "quality_issue_details": [
+            {
+                "source_record_id": issue.source_record_id,
+                "severity": issue.severity,
+                "code": issue.code,
+                "message": issue.message,
+            }
+            for issue in quality_issues
+        ],
     }

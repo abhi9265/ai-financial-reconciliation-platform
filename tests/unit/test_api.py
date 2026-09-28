@@ -367,6 +367,7 @@ def test_async_reconciliation_returns_batch_metadata_and_report(monkeypatch, tmp
     )
     assert report.status_code == 200
     assert report.json()["report"]["matched"] == 90
+    assert report.json()["created_at"]
 
 
 def test_reconciliation_report_is_tenant_scoped(monkeypatch, tmp_path):

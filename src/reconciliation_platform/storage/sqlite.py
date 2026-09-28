@@ -270,6 +270,52 @@ class SQLiteStore:
                 "result": json.loads(row[5]) if row[5] else None, "error": row[6],
             }
 
+    def save_reconciliation_report(
+        self,
+        *,
+        job_id: str,
+        tenant_id: str,
+        report: dict,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reconciliation_reports (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    report TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            import json
+            from datetime import datetime, timezone
+            connection.execute(
+                "INSERT OR REPLACE INTO reconciliation_reports (job_id, tenant_id, report, created_at) VALUES (?, ?, ?, ?)",
+                (job_id, tenant_id, json.dumps(report), datetime.now(timezone.utc).isoformat()),
+            )
+
+    def get_reconciliation_report(self, job_id: str, *, tenant_id: str) -> dict | None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reconciliation_reports (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    report TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            row = connection.execute(
+                "SELECT report, created_at FROM reconciliation_reports WHERE job_id = ? AND tenant_id = ?",
+                (job_id, tenant_id),
+            ).fetchone()
+            if row is None:
+                return None
+            import json
+            return {"report": json.loads(row[0]), "created_at": row[1]}
+
     def update_job(self, job_id: str, *, tenant_id: str, status: str, result: dict | None = None, error: str | None = None) -> None:
         with self._connect() as connection:
             import json

@@ -99,3 +99,8 @@ The review API is a workflow boundary, not a second matching engine. Determinist
 ## Phase 8 — Upload-to-Reconciliation Workflow
 
 The reconciliation API now supports a validated upload-to-job boundary. `POST /v1/reconcile/async` validates both source contracts before creating a job, records deterministic batch IDs, and returns source row counts. Completed jobs can be read through `GET /v1/reconcile/jobs/{job_id}/report`, which is tenant-scoped and returns the persisted reconciliation result. The deterministic engine remains authoritative; AI remains advisory for review cases.
+
+
+## Persisted reconciliation reports
+
+Completed asynchronous reconciliation jobs persist their final tenant-scoped report in the configured SQLite or PostgreSQL store. `GET /v1/reconcile/jobs/{job_id}/report` reads that persisted report rather than reconstructing it from transient worker state. Reports include reconciliation counts, AI-review metadata, review-case persistence count, tenant and source-object metadata, and are only accessible within the owning tenant.
