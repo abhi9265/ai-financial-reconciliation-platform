@@ -270,6 +270,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             summary=summary,
         )
         store.update_job(job_id, tenant_id=tenant_id, status="succeeded", result=summary)
+        store.save_reconciliation_report(job_id=job_id, tenant_id=tenant_id, report=summary)
         log_event("reconciliation_job_completed", job_id=job_id, tenant_id=tenant_id)
     except Exception as exc:
         record_reconciliation({}, failed=True, mode="async")
@@ -382,11 +383,15 @@ def reconciliation_job_report(
             status_code=409,
             detail=f"reconciliation report is unavailable while job status is {job['status']}",
         )
+    stored = build_store(Settings.from_env()).get_reconciliation_report(job_id, tenant_id=tenant_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="reconciliation report not found")
     return {
         "job_id": job_id,
         "tenant_id": tenant_id,
         "status": job["status"],
-        "report": job.get("result") or {},
+        "created_at": stored["created_at"],
+        "report": stored["report"],
     }
 
 
