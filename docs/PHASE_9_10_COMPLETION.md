@@ -26,3 +26,6 @@ Final candidate v2: syntax and coverage-gate corrections applied after CI feedba
 
 
 Final candidate v3 adds direct coverage for the browser mount and evidence endpoints.
+
+
+Final candidate v4 adds observability-path coverage to preserve the repository coverage gate.
