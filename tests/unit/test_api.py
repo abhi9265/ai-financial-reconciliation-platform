@@ -317,3 +317,78 @@ def test_source_upload_validates_and_persists_gst_json(monkeypatch, tmp_path):
     assert body["row_count"] == 1
     assert body["filename"] == "gst.json"
     assert body["object_key"].startswith("tenants/upload_01/raw/gst/")
+
+
+def test_async_reconciliation_validates_source_contract_before_queue(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "jobs.db"))
+
+    response = client.post(
+        "/v1/reconcile/async",
+        headers={"X-Tenant-ID": "validation_01"},
+        files={
+            "bank_file": ("bank.csv", b"transaction_id,transaction_date,amount,narration,reference,account_number\n", "text/csv"),
+            "purchase_file": ("purchase.csv", b"invoice_record_id,invoice_number,invoice_date,vendor_name,gstin,taxable_value,cgst,sgst,igst,total\n", "text/csv"),
+        },
+    )
+    assert response.status_code == 400
+    assert "no data rows" in response.json()["error"]["message"]
+
+
+def test_async_reconciliation_returns_batch_metadata_and_report(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "jobs.db"))
+    from pathlib import Path
+
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    response = client.post(
+        "/v1/reconcile/async",
+        headers={"X-Tenant-ID": "report_01"},
+        files={
+            "bank_file": ("bank.csv", bank, "text/csv"),
+            "purchase_file": ("purchase.csv", purchase, "text/csv"),
+        },
+    )
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["batches"]["bank"]
+    assert body["batches"]["purchase_register"]
+    assert body["row_counts"] == {"bank": 100, "purchase_register": 100}
+
+    report = client.get(
+        f"/v1/reconcile/jobs/{body['job_id']}/report",
+        headers={"X-Tenant-ID": "report_01"},
+    )
+    assert report.status_code == 200
+    assert report.json()["report"]["matched"] == 90
+
+
+def test_reconciliation_report_is_tenant_scoped(monkeypatch, tmp_path):
+    monkeypatch.setenv("API_KEY_REQUIRED", "false")
+    monkeypatch.setenv("OBJECT_STORE", "local")
+    monkeypatch.setenv("OBJECT_STORE_PATH", str(tmp_path / "objects"))
+    monkeypatch.setenv("RECONCILIATION_DB", str(tmp_path / "jobs.db"))
+    from pathlib import Path
+
+    bank = Path("data/synthetic/seed/bank_transactions.csv").read_bytes()
+    purchase = Path("data/synthetic/seed/purchase_invoices.csv").read_bytes()
+    response = client.post(
+        "/v1/reconcile/async",
+        headers={"X-Tenant-ID": "owner_01"},
+        files={
+            "bank_file": ("bank.csv", bank, "text/csv"),
+            "purchase_file": ("purchase.csv", purchase, "text/csv"),
+        },
+    )
+    job_id = response.json()["job_id"]
+    forbidden = client.get(
+        f"/v1/reconcile/jobs/{job_id}/report",
+        headers={"X-Tenant-ID": "other_01"},
+    )
+    assert forbidden.status_code == 404
