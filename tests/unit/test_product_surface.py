@@ -32,3 +32,35 @@ def test_reconciliation_result_endpoints(monkeypatch):
     assert "record_id" in csv_response.body.decode()
     json_response = app_module.export_reconciliation_json("job-1", _=None, tenant_id="tenant-a")
     assert "report_version" in json_response.body.decode()
+
+
+def test_bulk_review_decision_resolves_open_cases(monkeypatch):
+    from reconciliation_platform.api import reviews as reviews_module
+
+    class FakeStore:
+        def __init__(self):
+            self.cases = {
+                "case-1": {"case_id": "case-1", "status": "open"},
+                "case-2": {"case_id": "case-2", "status": "approved"},
+            }
+        def get_review_case(self, case_id, *, tenant_id):
+            return self.cases.get(case_id)
+        def resolve_review_case(self, case_id, *, tenant_id, status, note):
+            if self.cases[case_id]["status"] != "open":
+                return False
+            self.cases[case_id]["status"] = status
+            return True
+
+    monkeypatch.setattr(reviews_module, "build_store", lambda settings: FakeStore())
+    result = reviews_module.bulk_decide_reviews(
+        reviews_module.BulkReviewDecisionRequest(
+            case_ids=["case-1", "case-2", "missing"],
+            action="approve",
+            note="reviewed",
+        ),
+        _=None,
+        tenant_id="tenant-a",
+    )
+    assert result["resolved"] == ["case-1"]
+    assert {"case_id": "case-2", "reason": "already_resolved"} in result["conflicts"]
+    assert {"case_id": "missing", "reason": "not_found"} in result["conflicts"]
