@@ -14,3 +14,6 @@ Phase 9 and Phase 10 close the major backend-to-product gaps:
 - production deployment documentation updated with migration workflow
 
 The platform still deliberately distinguishes production-like engineering evidence from live customer/cloud operation. No public cloud deployment, customer production usage, or live AI provider evaluation is claimed by these changes.
+
+
+Validation note: the final validation PR is gated on the same CI, security, deployment, benchmark, migration, and customer-shaped data checks used by the existing production-oriented repository gates.
