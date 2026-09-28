@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reconciliation Console</title><link rel="stylesheet" href="/dashboard/style.css"></head>
+<body><main><header><div><h1>Reconciliation Console</h1><p>Tenant-scoped financial reconciliation, review and evidence.</p></div><button id="save">Save connection</button></header>
+<section class="card grid"><label>API base<input id="base" value=""></label><label>Tenant ID<input id="tenant" value="demo"></label><label>API key<input id="key" type="password" placeholder="API key"></label></section>
+<section class="card"><h2>Job</h2><div class="row"><input id="job" placeholder="Job ID"><button id="load">Load report</button><button id="csv">Export CSV</button><button id="json">Export JSON</button></div><pre id="report">No report loaded.</pre></section>
+<section class="card"><h2>Review queue</h2><button id="reviews">Refresh open reviews</button><div id="queue"></div></section></main><script src="/dashboard/app.js"></script></body></html>

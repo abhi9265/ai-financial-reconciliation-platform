@@ -21,6 +21,15 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql://reconciliation:${POSTGRES_PASSWORD}@postgres:5432/reconciliation
+
   api:
     build: .
     depends_on:
@@ -28,6 +37,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       API_KEY_REQUIRED: "true"
       RECONCILIATION_API_KEY: ${RECONCILIATION_API_KEY:?set RECONCILIATION_API_KEY in your shell or .env}

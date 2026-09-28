@@ -9,6 +9,9 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY data ./data
+COPY migrations ./migrations
+COPY alembic.ini ./alembic.ini
+COPY web ./web
 
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir . \

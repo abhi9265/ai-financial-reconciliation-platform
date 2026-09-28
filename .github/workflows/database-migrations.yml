@@ -1,0 +1,30 @@
+name: Database Migration Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+      - name: Upgrade schema
+        run: rm -f data/reconciliation.db && alembic -c alembic.ini upgrade head
+      - name: Verify revision
+        run: alembic -c alembic.ini current
+      - name: Downgrade schema
+        run: alembic -c alembic.ini downgrade base
+      - name: Re-upgrade schema
+        run: alembic -c alembic.ini upgrade head
