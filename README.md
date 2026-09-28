@@ -914,7 +914,8 @@ See [Database Migrations](docs/DATABASE_MIGRATIONS.md).
 |---|---|
 | `GET /health` | Liveness |
 | `GET /ready` | Dependency readiness |
-| `POST /v1/uploads` | Validate and persist a tenant-scoped source upload |\n| `POST /v1/reconcile` | Synchronous tenant-scoped reconciliation |
+| `POST /v1/uploads` | Validate and persist a tenant-scoped source upload |
+| `POST /v1/reconcile` | Synchronous tenant-scoped reconciliation |
 | `POST /v1/reconcile/async` | Queue reconciliation job |
 | `GET /v1/reconcile/jobs/{job_id}` | Poll job status/result |
 | `GET /v1/reconcile/jobs/{job_id}/report` | Durable reconciliation report |
@@ -984,9 +985,9 @@ docker compose up --build
 
 ## Project Status
 
-**Engineering status: production-oriented foundation complete; Phase 8 source ingestion and upload-to-reconciliation workflow complete.**
+**Engineering status: production-oriented foundation complete; Phases 8–10 source ingestion, durable reconciliation, product workflow and dashboard complete.**
 
-The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. Phase 8 now adds source-specific ingestion, durable reconciliation reports, tenant-scoped batch lineage, and upload-to-report orchestration on top of the existing reconciliation engine.
+The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. Phases 8–10 now add source-specific ingestion, durable reconciliation reports and individual decisions, tenant-scoped batch lineage, review/export workflows, explicit migrations, and a browser product console on top of the existing reconciliation engine.
 
 The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. Phase 1 now includes deterministic customer-shaped validation across bank/Tally/GST-style inputs, partial payments, one-to-many matching, date windows, incompatible financial noise, unmatched exceptions and canonical-contract validation. See [docs/CUSTOMER_DATA_VALIDATION.md](docs/CUSTOMER_DATA_VALIDATION.md). A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
