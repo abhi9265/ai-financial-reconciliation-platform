@@ -20,3 +20,6 @@ Validation note: the final validation PR is gated on the same CI, security, depl
 
 
 Release-candidate status: all required repository gates must be green before merge.
+
+
+Final candidate v2: syntax and coverage-gate corrections applied after CI feedback.
