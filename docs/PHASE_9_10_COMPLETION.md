@@ -29,3 +29,6 @@ Final candidate v3 adds direct coverage for the browser mount and evidence endpo
 
 
 Final candidate v4 adds observability-path coverage to preserve the repository coverage gate.
+
+
+Final candidate v5 adds bulk-review workflow coverage.
