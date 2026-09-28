@@ -6,7 +6,7 @@ import uuid
 import time
 from datetime import datetime, timezone
 
-from fastapi.responses import Response
+from fastapi.responses import Response, PlainTextResponse
 from fastapi import BackgroundTasks
 from pathlib import Path
 
@@ -32,6 +32,7 @@ from reconciliation_platform.rate_limit import build_rate_limiter
 from reconciliation_platform.api.errors import install_api_error_handlers
 from reconciliation_platform.api.reviews import router as reviews_router
 from reconciliation_platform.api.app_auth import require_api_key, require_tenant_id
+from reconciliation_platform.exports import results_csv, report_json
 
 configure_logging()
 app = FastAPI(
@@ -271,6 +272,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             summary=summary,
         )
         store.update_job(job_id, tenant_id=tenant_id, status="succeeded", result=summary)
+        store.save_reconciliation_results(job_id=job_id, tenant_id=tenant_id, decisions=result["decisions"])
         store.save_reconciliation_report(job_id=job_id, tenant_id=tenant_id, report=summary)
         log_event("reconciliation_job_completed", job_id=job_id, tenant_id=tenant_id)
     except Exception as exc:
@@ -395,6 +397,55 @@ def reconciliation_job_report(
         "report": stored["report"],
     }
 
+
+
+@app.get("/v1/reconcile/jobs/{job_id}/results", tags=["reconciliation"], summary="List persisted reconciliation results")
+def reconciliation_job_results(
+    job_id: str,
+    status: str = "all",
+    limit: int = 100,
+    offset: int = 0,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> dict:
+    if status not in {"all", "MATCHED", "REVIEW", "UNMATCHED"}:
+        raise HTTPException(status_code=400, detail="status must be all, MATCHED, REVIEW, or UNMATCHED")
+    if not 1 <= limit <= 500 or offset < 0:
+        raise HTTPException(status_code=400, detail="limit must be 1-500 and offset must be >= 0")
+    store = build_store(Settings.from_env())
+    job = store.get_job(job_id, tenant_id=tenant_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    items, total = store.list_reconciliation_results(job_id=job_id, tenant_id=tenant_id, status=status, limit=limit, offset=offset)
+    return {"job_id": job_id, "tenant_id": tenant_id, "status": status, "limit": limit, "offset": offset, "total": total, "items": items}
+
+
+@app.get("/v1/reconcile/jobs/{job_id}/export.csv", tags=["reconciliation"], summary="Export reconciliation results as CSV")
+def export_reconciliation_csv(
+    job_id: str,
+    status: str = "all",
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> PlainTextResponse:
+    store = build_store(Settings.from_env())
+    job = store.get_job(job_id, tenant_id=tenant_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    rows, _ = store.list_reconciliation_results(job_id=job_id, tenant_id=tenant_id, status=status, limit=500, offset=0)
+    return PlainTextResponse(results_csv(rows), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=reconciliation-{job_id}.csv"})
+
+
+@app.get("/v1/reconcile/jobs/{job_id}/export.json", tags=["reconciliation"], summary="Export reconciliation report as JSON")
+def export_reconciliation_json(
+    job_id: str,
+    _: None = Depends(require_api_key),
+    tenant_id: str = Depends(require_tenant_id),
+) -> PlainTextResponse:
+    store = build_store(Settings.from_env())
+    stored = store.get_reconciliation_report(job_id, tenant_id=tenant_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="reconciliation report not found")
+    return PlainTextResponse(report_json(stored["report"]), media_type="application/json", headers={"Content-Disposition": f"attachment; filename=reconciliation-{job_id}.json"})
 
 @app.get("/health", tags=["operations"], summary="Liveness check")
 def health() -> dict[str, str]:
