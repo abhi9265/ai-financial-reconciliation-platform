@@ -278,6 +278,46 @@ class SQLiteStore:
                 "result": json.loads(row[5]) if row[5] else None, "error": row[6],
             }
 
+    def save_reconciliation_results(self, *, job_id: str, tenant_id: str, decisions: Iterable[object]) -> int:
+        """Persist individual reconciliation decisions for durable audit/reporting."""
+        from datetime import datetime, timezone
+        with self._connect() as connection:
+            connection.execute("""CREATE TABLE IF NOT EXISTS reconciliation_results (
+                result_id TEXT PRIMARY KEY, job_id TEXT NOT NULL, tenant_id TEXT NOT NULL,
+                record_id TEXT NOT NULL, candidate_record_id TEXT, status TEXT NOT NULL,
+                match_tier TEXT NOT NULL, confidence REAL NOT NULL, explanation TEXT NOT NULL,
+                amount_difference TEXT, created_at TEXT NOT NULL,
+                UNIQUE(job_id, tenant_id, record_id))""")
+            import hashlib
+            inserted = 0
+            now = datetime.now(timezone.utc).isoformat()
+            for decision in decisions:
+                result_id = hashlib.sha256(f"{job_id}:{tenant_id}:{decision.bank_record_id}".encode()).hexdigest()[:24]
+                cursor = connection.execute(
+                    """INSERT OR IGNORE INTO reconciliation_results
+                    (result_id, job_id, tenant_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (result_id, job_id, tenant_id, decision.bank_record_id, decision.counterparty_record_id,
+                     decision.status, decision.tier, decision.confidence, decision.explanation,
+                     str(decision.amount_difference) if decision.amount_difference is not None else None, now),
+                )
+                inserted += cursor.rowcount
+            return inserted
+
+    def list_reconciliation_results(self, *, job_id: str, tenant_id: str, status: str = "all", limit: int = 100, offset: int = 0) -> tuple[list[dict], int]:
+        with self._connect() as connection:
+            where = "job_id = ? AND tenant_id = ?"
+            params: list[object] = [job_id, tenant_id]
+            if status != "all":
+                where += " AND status = ?"
+                params.append(status)
+            total = int(connection.execute(f"SELECT COUNT(*) FROM reconciliation_results WHERE {where}", params).fetchone()[0])
+            rows = connection.execute(
+                f"SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at FROM reconciliation_results WHERE {where} ORDER BY record_id LIMIT ? OFFSET ?",
+                [*params, limit, offset],
+            ).fetchall()
+            return [dict(row) for row in rows], total
+
     def save_reconciliation_report(
         self,
         *,
