@@ -286,6 +286,44 @@ class PostgresStore:
                 "result": row[3], "error": row[4],
             }
 
+    def save_reconciliation_results(self, *, job_id: str, tenant_id: str, decisions: Iterable[object]) -> int:
+        from datetime import datetime, timezone
+        import hashlib
+        with self._connect() as connection:
+            connection.execute("""CREATE TABLE IF NOT EXISTS reconciliation_results (
+                result_id TEXT PRIMARY KEY, job_id TEXT NOT NULL, tenant_id TEXT NOT NULL,
+                record_id TEXT NOT NULL, candidate_record_id TEXT, status TEXT NOT NULL,
+                match_tier TEXT NOT NULL, confidence DOUBLE PRECISION NOT NULL, explanation TEXT NOT NULL,
+                amount_difference TEXT, created_at TIMESTAMPTZ NOT NULL,
+                UNIQUE(job_id, tenant_id, record_id))""")
+            inserted = 0
+            now = datetime.now(timezone.utc)
+            for decision in decisions:
+                result_id = hashlib.sha256(f"{job_id}:{tenant_id}:{decision.bank_record_id}".encode()).hexdigest()[:24]
+                cursor = connection.execute(
+                    """INSERT INTO reconciliation_results
+                    (result_id, job_id, tenant_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (job_id, tenant_id, record_id) DO NOTHING""",
+                    (result_id, job_id, tenant_id, decision.bank_record_id, decision.counterparty_record_id,
+                     decision.status, decision.tier, decision.confidence, decision.explanation,
+                     str(decision.amount_difference) if decision.amount_difference is not None else None, now),
+                )
+                inserted += cursor.rowcount
+            connection.commit()
+            return inserted
+
+    def list_reconciliation_results(self, *, job_id: str, tenant_id: str, status: str = "all", limit: int = 100, offset: int = 0) -> tuple[list[dict], int]:
+        with self._connect() as connection:
+            if status == "all":
+                total = connection.execute("SELECT COUNT(*) FROM reconciliation_results WHERE job_id=%s AND tenant_id=%s", (job_id, tenant_id)).fetchone()[0]
+                rows = connection.execute("SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at FROM reconciliation_results WHERE job_id=%s AND tenant_id=%s ORDER BY record_id LIMIT %s OFFSET %s", (job_id, tenant_id, limit, offset)).fetchall()
+            else:
+                total = connection.execute("SELECT COUNT(*) FROM reconciliation_results WHERE job_id=%s AND tenant_id=%s AND status=%s", (job_id, tenant_id, status)).fetchone()[0]
+                rows = connection.execute("SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at FROM reconciliation_results WHERE job_id=%s AND tenant_id=%s AND status=%s ORDER BY record_id LIMIT %s OFFSET %s", (job_id, tenant_id, status, limit, offset)).fetchall()
+            columns = ["result_id","record_id","candidate_record_id","status","match_tier","confidence","explanation","amount_difference","created_at"]
+            return [dict(zip(columns, row)) for row in rows], int(total)
+
     def save_reconciliation_report(self, *, job_id: str, tenant_id: str, report: dict) -> None:
         from datetime import datetime, timezone
         with self._connect() as connection:
