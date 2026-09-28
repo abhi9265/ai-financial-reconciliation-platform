@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 
 from fastapi.responses import Response, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi import BackgroundTasks
 from pathlib import Path
 
@@ -48,6 +49,7 @@ app = FastAPI(
 )
 install_api_error_handlers(app)
 app.include_router(reviews_router)
+app.mount("/dashboard", StaticFiles(directory="web", html=True), name="dashboard")
 
 
 @app.middleware("http")
@@ -232,6 +234,7 @@ async def reconcile_uploaded_files(
 def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase_key: str, *, raise_on_error: bool = False) -> None:
     settings = Settings.from_env()
     store = build_store(settings)
+    started_at = time.perf_counter()
     store.update_job(job_id, tenant_id=tenant_id, status="running")
     try:
         object_store = build_object_store(settings)
@@ -261,7 +264,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             )
             summary["tenant_id"] = tenant_id
             summary["objects"] = {"bank": bank_key, "purchase_register": purchase_key}
-        record_reconciliation(summary, mode="async")
+        record_reconciliation(summary, mode="async", duration_seconds=time.perf_counter() - started_at)
         set_review_backlog(store.review_case_count(tenant_id=tenant_id))
         record_audit_event(
             "reconciliation.job.completed",
@@ -276,7 +279,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
         store.save_reconciliation_report(job_id=job_id, tenant_id=tenant_id, report=summary)
         log_event("reconciliation_job_completed", job_id=job_id, tenant_id=tenant_id)
     except Exception as exc:
-        record_reconciliation({}, failed=True, mode="async")
+        record_reconciliation({}, failed=True, mode="async", duration_seconds=time.perf_counter() - started_at)
         record_audit_event(
             "reconciliation.job.failed",
             tenant_id=tenant_id,
