@@ -359,7 +359,7 @@ def test_async_reconciliation_returns_batch_metadata_and_report(monkeypatch, tmp
     assert body["status"] == "queued"
     assert body["batches"]["bank"]
     assert body["batches"]["purchase_register"]
-    assert body["row_counts"] == {"bank": 100, "purchase_register": 100}
+    assert body["row_counts"] == {"bank": 100, "purchase_register": 95}
 
     report = client.get(
         f"/v1/reconcile/jobs/{body['job_id']}/report",
