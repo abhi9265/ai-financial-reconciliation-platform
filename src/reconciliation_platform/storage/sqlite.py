@@ -36,11 +36,12 @@ class SQLiteStore:
                 """
                 CREATE TABLE IF NOT EXISTS ingestion_batches (
                     batch_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     source_system TEXT NOT NULL,
                     file_fingerprint TEXT NOT NULL,
                     schema_version TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    UNIQUE(source_system, file_fingerprint, schema_version)
+                    UNIQUE(tenant_id, source_system, file_fingerprint, schema_version)
                 );
 
                 CREATE TABLE IF NOT EXISTS idempotency_records (
@@ -66,6 +67,12 @@ class SQLiteStore:
                 );
                 """
             )
+            batch_columns = {row[1] for row in connection.execute("PRAGMA table_info(ingestion_batches)")}
+            if "tenant_id" not in batch_columns:
+                connection.execute("ALTER TABLE ingestion_batches RENAME TO ingestion_batches_legacy")
+                connection.execute("CREATE TABLE ingestion_batches (batch_id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL DEFAULT 'default', source_system TEXT NOT NULL, file_fingerprint TEXT NOT NULL, schema_version TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(tenant_id, source_system, file_fingerprint, schema_version))")
+                connection.execute("INSERT INTO ingestion_batches (batch_id, tenant_id, source_system, file_fingerprint, schema_version, created_at) SELECT batch_id, 'default', source_system, file_fingerprint, schema_version, created_at FROM ingestion_batches_legacy")
+                connection.execute("DROP TABLE ingestion_batches_legacy")
             columns = {row[1] for row in connection.execute("PRAGMA table_info(review_cases)")}
             if "tenant_id" not in columns:
                 connection.execute(
@@ -86,16 +93,17 @@ class SQLiteStore:
         file_fingerprint: str,
         schema_version: str,
         created_at: str,
+        tenant_id: str = "default",
     ) -> bool:
         """Persist a batch. Return False when the same batch was already registered."""
         with self._connect() as connection:
             cursor = connection.execute(
                 """
                 INSERT OR IGNORE INTO ingestion_batches
-                (batch_id, source_system, file_fingerprint, schema_version, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                (batch_id, tenant_id, source_system, file_fingerprint, schema_version, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (batch_id, source_system, file_fingerprint, schema_version, created_at),
+                (batch_id, tenant_id, source_system, file_fingerprint, schema_version, created_at),
             )
             return cursor.rowcount == 1
 
