@@ -322,7 +322,7 @@ class PostgresStore:
                 total = connection.execute("SELECT COUNT(*) FROM reconciliation_results WHERE job_id=%s AND tenant_id=%s AND status=%s", (job_id, tenant_id, status)).fetchone()[0]
                 rows = connection.execute("SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at FROM reconciliation_results WHERE job_id=%s AND tenant_id=%s AND status=%s ORDER BY record_id LIMIT %s OFFSET %s", (job_id, tenant_id, status, limit, offset)).fetchall()
             columns = ["result_id","record_id","candidate_record_id","status","match_tier","confidence","explanation","amount_difference","created_at"]
-            return [dict(zip(columns, row)) for row in rows], int(total)
+            return [dict(zip(columns, row, strict=True)) for row in rows], int(total)
 
     def save_reconciliation_report(self, *, job_id: str, tenant_id: str, report: dict) -> None:
         from datetime import datetime, timezone
