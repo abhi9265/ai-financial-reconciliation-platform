@@ -23,3 +23,6 @@ Release-candidate status: all required repository gates must be green before mer
 
 
 Final candidate v2: syntax and coverage-gate corrections applied after CI feedback.
+
+
+Final candidate v3 adds direct coverage for the browser mount and evidence endpoints.
