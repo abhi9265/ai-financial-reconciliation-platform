@@ -1,20 +1,23 @@
 name: Measured AI Review Benchmark
 
 on:
-  pull_request:
-    paths:
-      - "src/reconciliation_platform/ai/**"
-      - "scripts/run_ai_review_benchmark.py"
-      - "docs/ai-review-benchmark.md"
-      - ".github/workflows/ai-review-benchmark.yml"
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: Number of synthetic ambiguous cases
+        required: true
+        default: "400"
+        type: string
+      model:
+        description: OpenAI review model
+        required: true
+        default: gpt-5.6-luna
+        type: string
 
 jobs:
   ai-evaluation:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_REVIEW_MODEL: ${{ vars.OPENAI_REVIEW_MODEL || 'gpt-5.6-luna' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,19 +27,24 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
       - name: Check for live-provider credential
         id: credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if [ -n "$OPENAI_API_KEY" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "OPENAI_API_KEY is not configured; skipping measured live AI benchmark."
+            echo "OPENAI_API_KEY is not configured; measured AI benchmark will not run."
           fi
       - name: Run 400-case AI evaluation
         if: steps.credential.outputs.available == 'true'
-        run: python scripts/run_ai_review_benchmark.py --cases 400 --output reports/ai-review-benchmark.json
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_REVIEW_MODEL: ${{ inputs.model }}
+        run: python scripts/run_ai_review_benchmark.py --cases "${{ inputs.cases }}" --output reports/ai-review-benchmark.json
       - name: Upload measured AI evidence
         if: steps.credential.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ai-review-benchmark-400
+          name: ai-review-benchmark-${{ inputs.cases }}
           path: reports/ai-review-benchmark.json
