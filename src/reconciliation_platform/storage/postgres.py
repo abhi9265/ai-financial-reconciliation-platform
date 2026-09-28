@@ -270,6 +270,46 @@ class PostgresStore:
                 "result": row[3], "error": row[4],
             }
 
+    def save_reconciliation_report(self, *, job_id: str, tenant_id: str, report: dict) -> None:
+        from datetime import datetime, timezone
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reconciliation_reports (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    report JSONB NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO reconciliation_reports (job_id, tenant_id, report, created_at) VALUES (%s, %s, %s, %s) "
+                "ON CONFLICT (job_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, report = EXCLUDED.report, created_at = EXCLUDED.created_at",
+                (job_id, tenant_id, Jsonb(report), datetime.now(timezone.utc)),
+            )
+            connection.commit()
+
+    def get_reconciliation_report(self, job_id: str, *, tenant_id: str) -> dict | None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reconciliation_reports (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    report JSONB NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            row = connection.execute(
+                "SELECT report, created_at FROM reconciliation_reports WHERE job_id = %s AND tenant_id = %s",
+                (job_id, tenant_id),
+            ).fetchone()
+            if row is None:
+                return None
+            return {"report": row[0], "created_at": row[1]}
+
     def update_job(self, job_id: str, *, tenant_id: str, status: str, result: dict | None = None, error: str | None = None) -> None:
         with self._connect() as connection:
             connection.execute(
