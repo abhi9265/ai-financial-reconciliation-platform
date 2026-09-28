@@ -27,11 +27,12 @@ class PostgresStore:
                 """
                 CREATE TABLE IF NOT EXISTS ingestion_batches (
                     batch_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     source_system TEXT NOT NULL,
                     file_fingerprint TEXT NOT NULL,
                     schema_version TEXT NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL,
-                    UNIQUE(source_system, file_fingerprint, schema_version)
+                    UNIQUE(tenant_id, source_system, file_fingerprint, schema_version)
                 );
 
                 CREATE TABLE IF NOT EXISTS idempotency_records (
@@ -69,6 +70,20 @@ class PostgresStore:
                 );
                 """
             )
+            batch_columns = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'ingestion_batches'"
+                ).fetchall()
+            }
+            if "tenant_id" not in batch_columns:
+                connection.execute("ALTER TABLE ingestion_batches ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'")
+                connection.execute(
+                    "ALTER TABLE ingestion_batches DROP CONSTRAINT IF EXISTS ingestion_batches_source_system_file_fingerprint_schema_version_key"
+                )
+                connection.execute(
+                    "ALTER TABLE ingestion_batches ADD CONSTRAINT ingestion_batches_tenant_source_fingerprint_key UNIQUE (tenant_id, source_system, file_fingerprint, schema_version)"
+                )
             columns = {
                 row[0]
                 for row in connection.execute(
@@ -95,16 +110,17 @@ class PostgresStore:
         file_fingerprint: str,
         schema_version: str,
         created_at: str,
+        tenant_id: str = "default",
     ) -> bool:
         with self._connect() as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO ingestion_batches
-                (batch_id, source_system, file_fingerprint, schema_version, created_at)
-                VALUES (%s, %s, %s, %s, %s)
+                (batch_id, tenant_id, source_system, file_fingerprint, schema_version, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
                 """,
-                (batch_id, source_system, file_fingerprint, schema_version, created_at),
+                (batch_id, tenant_id, source_system, file_fingerprint, schema_version, created_at),
             )
             connection.commit()
             return cursor.rowcount == 1
