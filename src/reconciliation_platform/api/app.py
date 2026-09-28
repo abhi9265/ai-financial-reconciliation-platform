@@ -149,7 +149,7 @@ async def upload_source(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     fingerprint = compute_file_fingerprint(content)
-    batch_id = compute_batch_id(source_system, fingerprint, "1.0")
+    batch_id = compute_batch_id(source_system, fingerprint, "1.0", tenant_id)
     object_store = build_object_store(settings)
     object_store.put(object_key, content)
     build_store(settings).register_batch(
@@ -202,7 +202,7 @@ async def reconcile_uploaded_files(
         root = Path(temp_dir)
         (root / "bank_transactions.csv").write_bytes(object_store.get(bank_key))
         (root / "purchase_invoices.csv").write_bytes(object_store.get(purchase_key))
-        result = run_pipeline(root)
+        result = run_pipeline(root, tenant_id=tenant_id)
         summary = summarize(result)
         ai_results = escalate_reviews(result["decisions"], build_ai_reviewer(settings))
         summary["ai_review"] = {
@@ -237,7 +237,7 @@ def _run_reconciliation_job(job_id: str, tenant_id: str, bank_key: str, purchase
             root = Path(temp_dir)
             (root / "bank_transactions.csv").write_bytes(object_store.get(bank_key))
             (root / "purchase_invoices.csv").write_bytes(object_store.get(purchase_key))
-            result = run_pipeline(root)
+            result = run_pipeline(root, tenant_id=tenant_id)
             summary = summarize(result)
             ai_results = escalate_reviews(result["decisions"], build_ai_reviewer(settings))
             summary["ai_review"] = {
@@ -321,8 +321,8 @@ async def enqueue_reconciliation(
     store = build_store(settings)
     bank_fingerprint = compute_file_fingerprint(bank_content)
     purchase_fingerprint = compute_file_fingerprint(purchase_content)
-    bank_batch_id = compute_batch_id(SourceSystem.BANK, bank_fingerprint, "1.0")
-    purchase_batch_id = compute_batch_id(SourceSystem.PURCHASE_REGISTER, purchase_fingerprint, "1.0")
+    bank_batch_id = compute_batch_id(SourceSystem.BANK, bank_fingerprint, "1.0", tenant_id)
+    purchase_batch_id = compute_batch_id(SourceSystem.PURCHASE_REGISTER, purchase_fingerprint, "1.0", tenant_id)
     store.register_batch(batch_id=bank_batch_id, source_system=SourceSystem.BANK.value, file_fingerprint=bank_fingerprint, schema_version="1.0", created_at=now)
     store.register_batch(batch_id=purchase_batch_id, source_system=SourceSystem.PURCHASE_REGISTER.value, file_fingerprint=purchase_fingerprint, schema_version="1.0", created_at=now)
     job_id = uuid.uuid4().hex
