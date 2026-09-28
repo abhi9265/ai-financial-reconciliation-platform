@@ -767,7 +767,7 @@ The ingestion boundary now connects validated source files to the reconciliation
 
 - async reconciliation validates bank and purchase source contracts before a job is queued
 - raw uploads are persisted through the existing tenant-scoped object-store boundary
-- deterministic batch IDs are computed from source + file fingerprint + schema version
+- tenant-scoped batch IDs are computed from tenant + source + file fingerprint + schema version
 - queued jobs expose parsed source row counts and batch IDs
 - completed jobs expose a tenant-scoped reconciliation report
 - invalid source files fail before a reconciliation job is created
@@ -793,7 +793,7 @@ Bank CSV / Purchase CSV / GST JSON
        Reconciliation engine
 ```
 
-The first slice now includes validated parsers for common bank CSV exports, purchase-register CSV exports, Tally CSV/XLSX exports, and GST invoice JSON. A tenant-scoped `/v1/uploads` endpoint validates and persists source files with batch fingerprints. Source-specific parsing remains isolated from reconciliation logic; upload-to-report orchestration is now connected through the asynchronous reconciliation path.
+The first slice now includes validated parsers for common bank CSV exports, purchase-register CSV exports, Tally CSV/XLSX exports, and GST invoice JSON. A tenant-scoped `/v1/uploads` endpoint validates and persists source files with tenant-scoped batch identities and fingerprints. Source-specific parsing remains isolated from reconciliation logic; upload-to-report orchestration is now connected through the asynchronous reconciliation path.
 
 See [Production Source Ingestion](docs/SOURCE_INGESTION.md).
 
