@@ -17,3 +17,6 @@ The platform still deliberately distinguishes production-like engineering eviden
 
 
 Validation note: the final validation PR is gated on the same CI, security, deployment, benchmark, migration, and customer-shaped data checks used by the existing production-oriented repository gates.
+
+
+Release-candidate status: all required repository gates must be green before merge.
