@@ -306,16 +306,26 @@ class SQLiteStore:
 
     def list_reconciliation_results(self, *, job_id: str, tenant_id: str, status: str = "all", limit: int = 100, offset: int = 0) -> tuple[list[dict], int]:
         with self._connect() as connection:
-            where = "job_id = ? AND tenant_id = ?"
-            params: list[object] = [job_id, tenant_id]
-            if status != "all":
-                where += " AND status = ?"
-                params.append(status)
-            total = int(connection.execute(f"SELECT COUNT(*) FROM reconciliation_results WHERE {where}", params).fetchone()[0])
-            rows = connection.execute(
-                f"SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at FROM reconciliation_results WHERE {where} ORDER BY record_id LIMIT ? OFFSET ?",
-                [*params, limit, offset],
-            ).fetchall()
+            if status == "all":
+                total = int(connection.execute(
+                    "SELECT COUNT(*) FROM reconciliation_results WHERE job_id = ? AND tenant_id = ?",
+                    (job_id, tenant_id),
+                ).fetchone()[0])
+                rows = connection.execute(
+                    "SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at "
+                    "FROM reconciliation_results WHERE job_id = ? AND tenant_id = ? ORDER BY record_id LIMIT ? OFFSET ?",
+                    (job_id, tenant_id, limit, offset),
+                ).fetchall()
+            else:
+                total = int(connection.execute(
+                    "SELECT COUNT(*) FROM reconciliation_results WHERE job_id = ? AND tenant_id = ? AND status = ?",
+                    (job_id, tenant_id, status),
+                ).fetchone()[0])
+                rows = connection.execute(
+                    "SELECT result_id, record_id, candidate_record_id, status, match_tier, confidence, explanation, amount_difference, created_at "
+                    "FROM reconciliation_results WHERE job_id = ? AND tenant_id = ? AND status = ? ORDER BY record_id LIMIT ? OFFSET ?",
+                    (job_id, tenant_id, status, limit, offset),
+                ).fetchall()
             return [dict(row) for row in rows], total
 
     def save_reconciliation_report(
