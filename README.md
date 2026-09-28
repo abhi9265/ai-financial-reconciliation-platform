@@ -68,7 +68,7 @@ It is a **multi-tenant financial reconciliation platform** that:
 
 ## Architecture & Engineering Map
 
-The diagram below is the **primary visual architecture map** for the project. It is intentionally dense: instead of three small, generic diagrams, it shows the system as an interview-ready engineering story — architecture, data flow, matching logic, AI governance, deployment, measured performance, repository structure and technology choices.
+The diagram below is the **primary visual architecture map** for the project. It brings together the runtime architecture, data flow, matching logic, AI boundary, deployment model and measured engineering evidence.
 
 
 
@@ -334,7 +334,6 @@ curl http://localhost:8000/metrics
 |---|---|
 | [Production Architecture](docs/ARCHITECTURE.md) | System design, data flow, reliability and scaling |
 | [Production Deployment](docs/DEPLOYMENT.md) | Local → staging → production deployment path |
-| [Recruiter / Interview Demo](docs/RECRUITER_DEMO.md) | 60-second pitch, demo flow and interview questions |
 | [System Architecture](architecture/architecture.md) | Existing architecture and contracts |
 | [API Examples](docs/api-examples.md) | API usage examples |
 | [Phase 1 Engineering Report](reports/phase1_mvp_report.md) | Earlier engineering milestone |
@@ -989,7 +988,7 @@ docker compose up --build
 
 The repository has been hardened through automated testing, dependency security checks, static security analysis, container validation, non-root execution, OWASP ZAP DAST, tenant isolation, asynchronous processing, observability, and distributed-worker support. Phases 8–10 now add source-specific ingestion, durable reconciliation reports and individual decisions, tenant-scoped batch lineage, review/export workflows, explicit migrations, and a browser product console on top of the existing reconciliation engine.
 
-The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, a recruiter-facing demo script and architecture documentation. Phase 1 now includes deterministic customer-shaped validation across bank/Tally/GST-style inputs, partial payments, one-to-many matching, date windows, incompatible financial noise, unmatched exceptions and canonical-contract validation. See [docs/CUSTOMER_DATA_VALIDATION.md](docs/CUSTOMER_DATA_VALIDATION.md). A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
+The repository now includes a production deployment blueprint, container/Compose deployment validation in CI, and architecture documentation. Phase 1 now includes deterministic customer-shaped validation across bank/Tally/GST-style inputs, partial payments, one-to-many matching, date windows, incompatible financial noise, unmatched exceptions and canonical-contract validation. See [docs/CUSTOMER_DATA_VALIDATION.md](docs/CUSTOMER_DATA_VALIDATION.md). A live public deployment is intentionally a separate infrastructure step requiring external cloud credentials and managed services. This repository does not claim production customer usage or live financial accuracy.
 
 ---
 
