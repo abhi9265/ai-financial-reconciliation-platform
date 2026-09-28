@@ -10,8 +10,13 @@ def compute_file_fingerprint(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-def compute_batch_id(source_system: SourceSystem, file_fingerprint: str, schema_version: str) -> str:
-    payload = f"{source_system.value}|{file_fingerprint}|{schema_version}"
+def compute_batch_id(
+    source_system: SourceSystem,
+    file_fingerprint: str,
+    schema_version: str,
+    tenant_id: str | None = None,
+) -> str:
+    payload = f"{tenant_id or 'default'}|{source_system.value}|{file_fingerprint}|{schema_version}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 

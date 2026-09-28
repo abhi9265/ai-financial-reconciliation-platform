@@ -26,7 +26,7 @@ def _read_csv(path: Path) -> tuple[list[dict[str, str]], str]:
     return rows, compute_file_fingerprint(raw)
 
 
-def run_pipeline(data_dir: str | Path) -> dict:
+def run_pipeline(data_dir: str | Path, *, tenant_id: str | None = None) -> dict:
     root = Path(data_dir)
     bank_path = root / "bank_transactions.csv"
     purchase_path = root / "purchase_invoices.csv"
@@ -38,8 +38,8 @@ def run_pipeline(data_dir: str | Path) -> dict:
     validate_rows(purchase_rows, purchase_rows[0].keys())
 
     now = datetime.now(timezone.utc)
-    bank_batch = compute_batch_id(SourceSystem.BANK, bank_hash, SCHEMA_VERSION)
-    purchase_batch = compute_batch_id(SourceSystem.PURCHASE_REGISTER, purchase_hash, SCHEMA_VERSION)
+    bank_batch = compute_batch_id(SourceSystem.BANK, bank_hash, SCHEMA_VERSION, tenant_id)
+    purchase_batch = compute_batch_id(SourceSystem.PURCHASE_REGISTER, purchase_hash, SCHEMA_VERSION, tenant_id)
     bank = normalize_rows(
         bank_rows,
         context=NormalizationContext(SourceSystem.BANK, bank_path.name, bank_hash, SCHEMA_VERSION, bank_batch, now),
