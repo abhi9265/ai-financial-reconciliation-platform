@@ -14,6 +14,9 @@ on:
         default: gpt-5.6-luna
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   ai-evaluation:
     runs-on: ubuntu-latest
